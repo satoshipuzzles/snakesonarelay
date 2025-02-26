@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>High Scores - Nostr Snake Game</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+          --bg-color: #121212;
+          --primary-color: #BB86FC;
+          --secondary-color: #03DAC6;
+          --text-color: #FFFFFF;
+          --panel-bg: #1E1E1E;
+          --danger-color: #CF6679;
+      }
+      
+      body {
+          background-color: var(--bg-color);
+          color: var(--text-color);
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      
+      .header {
+          margin-top: 20px;
+      }
+      
+      h1 {
+          color: var(--primary-color);
+          text-align: center;
+      }
+      
+      .highscore-item {
+          background-color: var(--panel-bg);
+          border-radius: 8px;
+          margin-bottom: 10px;
+          padding: 15px;
+          display: flex;
+          align-items: center;
+          transition: transform 0.2s ease-in-out;
+      }
+      
+      .highscore-item:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+      
+      .rank {
+          font-size: 24px;
+          font-weight: bold;
+          width: 40px;
+          color: var(--secondary-color);
+      }
+      
+      .profile-pic {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          margin-right: 15px;
+          background-color: var(--primary-color);
+          overflow: hidden;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+      }
+      
+      .profile-pic img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+      }
+      
+      .player-info {
+          flex-grow: 1;
+      }
+      
+      .player-name {
+          font-weight: bold;
+          font-size: 18px;
+      }
+      
+      .score {
+          font-weight: bold;
+          color: var(--primary-color);
+          font-size: 20px;
+      }
+      
+      .timestamp {
+          font-size: 12px;
+          opacity: 0.7;
+      }
+      
+      #loading {
+          margin-top: 50px;
+          font-size: 20px;
+          color: var(--primary-color);
+      }
+      
+      .btn-dark {
+          background-color: #333;
+          border: none;
+      }
+      
+      .btn-dark:hover {
+          background-color: #444;
+      }
+      
+      .stats-container {
+          margin-top: 20px;
+          margin-bottom: 30px;
+          display: flex;
+          justify-content: center;
+          gap: 20px;
+      }
+      
+      .stat-card {
+          background-color: var(--panel-bg);
+          padding: 15px;
+          border-radius: 8px;
+          text-align: center;
+          width: 150px;
+      }
+      
+      .stat-label {
+          color: var(--secondary-color);
+          font-size: 14px;
+          margin-bottom: 5px;
+      }
+      
+      .stat-value {
+          font-size: 22px;
+          font-weight: bold;
+          color: var(--primary-color);
+      }
+      
+      .filter-buttons {
+          display: flex;
+          justify-content: center;
+          gap: 10px;
+          margin-bottom: 20px;
+      }
+      
+      .filter-btn {
+          background-color: var(--panel-bg);
+          color: var(--text-color);
+          border: 1px solid var(--primary-color);
+          padding: 5px 15px;
+          border-radius: 20px;
+          cursor: pointer;
+      }
+      
+      .filter-btn.active {
+          background-color: var(--primary-color);
+          color: black;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-4">
+      <div
+        class="header d-flex justify-content-between align-items-center mb-4"
+      >
+        <button class="btn btn-dark" id="back-button">Back to Game</button>
+        <h1>High Scores</h1>
+      </div>
+      
+      <div class="stats-container">
+          <div class="stat-card">
+              <div class="stat-label">Total Players</div>
+              <div class="stat-value" id="total-players">--</div>
+          </div>
+          <div class="stat-card">
+              <div class="stat-label">Top Score</div>
+              <div class="stat-value" id="top-score">--</div>
+          </div>
+          <div class="stat-card">
+              <div class="stat-label">Avg Score</div>
+              <div class="stat-value" id="avg-score">--</div>
+          </div>
+      </div>
+      
+      <div class="filter-buttons">
+          <button class="filter-btn active" data-filter="all">All Time</button>
+          <button class="filter-btn" data-filter="day">Today</button>
+          <button class="filter-btn" data-filter="week">This Week</button>
+          <button class="filter-btn" data-filter="month">This Month</button>
+      </div>
+      
+      <div id="loading" class="text-center">Loading high scores...</div>
+      <div id="highscore-list" class="mt-4">
+        <ul class="list-unstyled">
+          <!-- High scores will be inserted here by JavaScript -->
+        </ul>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Configuration
+      const GAME_RELAYS = [
+        'wss://relay.nostrfreaks.com',
+        'wss://relay.damus.io'
+      ];
+      const METADATA_RELAYS = [
+        'wss://relay.nostrfreaks.com',
+        'wss://relay.damus.io',
+        'wss://purplepag.es'
+      ];
+      const HIGHSCORE_KIND = 1000002; // Match the kind from the game
+      
+      // Global state
+      let nostrRelays = {};
+      let highscores = [];
+      let filteredHighscores = [];
+      let profileMetadata = {};
+      let currentFilter = 'all';
+      
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', function() {
+        // Set up event listeners
+        document.getElementById('back-button').addEventListener('click', function() {
+          window.location.href = 'index.html';
+        });
+        
+        // Set up filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const filter = this.getAttribute('data-filter');
+            setActiveFilter(filter);
+          });
+        });
+        
+        // Connect to relays and fetch highscores
+        connectToRelays();
+      });
+      
+      // Set active filter
+      function setActiveFilter(filter) {
+        currentFilter = filter;
+        
+        // Update active button
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+          if (btn.getAttribute('data-filter') === filter) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+        
+        // Apply filter
+        applyFilter();
+      }
+      
+      // Apply current filter to highscores
+      function applyFilter() {
+        const now = Date.now();
+        const day = 24 * 60 * 60 * 1000;
+        
+        switch (currentFilter) {
+          case 'day':
+            filteredHighscores = highscores.filter(score => now - score.timestamp < day);
+            break;
+          case 'week':
+            filteredHighscores = highscores.filter(score => now - score.timestamp < 7 * day);
+            break;
+          case 'month':
+            filteredHighscores = highscores.filter(score => now - score.timestamp < 30 * day);
+            break;
+          default:
+            filteredHighscores = [...highscores];
+        }
+        
+        // Sort by score
+        filteredHighscores.sort((a, b) => b.score - a.score);
+        
+        // Update display
+        updateHighscoresDisplay();
+        updateStats();
+      }
+      
+      // Connect to Nostr relays
+      async function connectToRelays() {
+        let connectedCount = 0;
+        
+        // Connect to each game relay
+        GAME_RELAYS.forEach(relayUrl => {
+          try {
+            console.log(`Connecting to relay: ${relayUrl}`);
+            const relay = new WebSocket(relayUrl);
+            nostrRelays[relayUrl] = relay;
+            
+            relay.onopen = () => {
+              console.log(`Connected to relay: ${relayUrl}`);
+              connectedCount++;
+              fetchHighscores(relay);
+            };
+            
+            relay.onerror = (error) => {
+              console.error(`Relay connection error for ${relayUrl}:`, error);
+              if (connectedCount === 0) {
+                displayError(`Failed to connect to relay: ${relayUrl}`);
+              }
+            };
+            
+            relay.onclose = () => {
+              console.log(`Relay connection closed: ${relayUrl}`);
+              delete nostrRelays[relayUrl];
+            };
+            
+            relay.onmessage = handleRelayMessage;
+          } catch (error) {
+            console.error(`Error setting up connection to ${relayUrl}:`, error);
+            if (connectedCount === 0) {
+              displayError(`Failed to connect to relay: ${relayUrl}`);
+            }
+          }
+        });
+        
+        // Set a timeout in case all connections fail
+        setTimeout(() => {
+          if (connectedCount === 0) {
+            displayError("Failed to connect to any relays");
+          }
+        }, 5000);
+      }
+      
+      // Fetch highscores from relay
+      function fetchHighscores(relay) {
+        // Request highscores with unique subscription ID
+        const highscoreRequest = JSON.stringify([
+          "REQ",
+          "highscores_" + Math.random().toString(36).substring(2, 10),
+          {
+            "kinds": [HIGHSCORE_KIND],
+            "limit": 500
+          }
+        ]);
+        
+        relay.send(highscoreRequest);
+      }
+      
+      // Handle messages from the relay
+      function handleRelayMessage(event) {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message[0] === "EVENT") {
+            const eventData = message[2];
+            
+            // Handle different event types
+            if (eventData.kind === HIGHSCORE_KIND) {
+              handleHighscoreEvent(eventData);
+            } else if (eventData.kind === 0) {
+              // Metadata event
+              handleMetadataEvent(eventData);
+            }
+          } else if (message[0] === "EOSE") {
+            // End of stored events
+            if (message[1].startsWith("highscores_")) {
+              if (highscores.length === 0) {
+                displayNoHighscores();
+              } else {
+                // We need profile metadata for the highscore authors
+                applyFilter();
+                fetchProfilesMetadata();
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error handling relay message:', error);
+        }
+      }
+      
+      // Handle highscore event
+      function handleHighscoreEvent(event) {
+        try {
+          const content = JSON.parse(event.content);
+          const pubkey = event.pubkey;
+          const createdAt = event.created_at;
+          
+          // Skip duplicates
+          if (highscores.some(h => h.pubkey === pubkey && h.timestamp === (content.timestamp || createdAt * 1000))) {
+            return;
+          }
+          
+          // Add to highscores
+          highscores.push({
+            pubkey: pubkey,
+            score: content.score,
+            length: content.length || 0,
+            timestamp: content.timestamp || (createdAt * 1000),
+            createdAt: createdAt
+          });
+          
+          // Apply filter
+          applyFilter();
+        } catch (error) {
+          console.error('Error handling highscore event:', error);
+        }
+      }
+      
+      // Handle metadata event
+      function handleMetadataEvent(event) {
+        try {
+          const content = JSON.parse(event.content);
+          const pubkey = event.pubkey;
+          
+          // Store metadata
+          profileMetadata[pubkey] = {
+            name: content.name || content.display_name || 'Anonymous',
+            picture: content.picture || null
+          };
+          
+          // Update display
+          updateHighscoresDisplay();
+        } catch (error) {
+          console.error('Error handling metadata event:', error);
+        }
+      }
+      
+      // Fetch profile metadata for highscore authors
+      function fetchProfilesMetadata() {
+        // Get unique pubkeys from highscores
+        const pubkeys = [...new Set(highscores.map(h => h.pubkey))];
+        
+        if (pubkeys.length === 0) {
+          // No highscores to display
+          displayNoHighscores();
+          return;
+        }
+        
+        // Try to fetch metadata from multiple relays
+        let metadataFound = {};
+        let relayConnections = [];
+        
+        console.log(`Fetching metadata for ${pubkeys.length} profiles...`);
+        
+        // Request metadata for all pubkeys from multiple relays
+        METADATA_RELAYS.forEach(relayUrl => {
+          try {
+            // Check if we already have a connection to this relay
+            if (nostrRelays[relayUrl] && nostrRelays[relayUrl].readyState === WebSocket.OPEN) {
+              // Use existing connection
+              const metadataRequest = JSON.stringify([
+                "REQ",
+                `profiles_${Math.random().toString(36).substring(2, 10)}`,
+                {
+                  "kinds": [0],
+                  "authors": pubkeys,
+                  "limit": 500
+                }
+              ]);
+              
+              nostrRelays[relayUrl].send(metadataRequest);
+            } else {
+              // Create new connection
+              const relay = new WebSocket(relayUrl);
+              relayConnections.push(relay);
+              
+              relay.onopen = () => {
+                console.log(`Connected to ${relayUrl} for metadata...`);
+                
+                const metadataRequest = JSON.stringify([
+                  "REQ",
+                  `profiles_${Math.random().toString(36).substring(2, 10)}`,
+                  {
+                    "kinds": [0],
+                    "authors": pubkeys,
+                    "limit": 500
+                  }
+                ]);
+                
+                relay.send(metadataRequest);
+              };
+              
+              relay.onmessage = (event) => {
+                try {
+                  const message = JSON.parse(event.data);
+                  
+                  if (message[0] === "EVENT" && message[2].kind === 0) {
+                    const pubkey = message[2].pubkey;
+                    const content = JSON.parse(message[2].content);
+                    
+                    // Only store if we don't already have metadata for this pubkey
+                    if (!metadataFound[pubkey]) {
+                      console.log(`Got metadata for ${pubkey} from relay ${relayUrl}`);
+                      metadataFound[pubkey] = true;
+                      
+                      profileMetadata[pubkey] = {
+                        name: content.name || content.display_name || 'Anonymous',
+                        picture: content.picture || null
+                      };
+                      
+                      // Update the display periodically
+                      if (Object.keys(metadataFound).length % 5 === 0) {
+                        updateHighscoresDisplay();
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error(`Error handling message from ${relayUrl}:`, e);
+                }
+              };
+              
+              // Close after 5 seconds
+              setTimeout(() => {
+                try { relay.close(); } catch (e) {}
+              }, 5000);
+            }
+          } catch (e) {
+            console.error(`Error connecting to ${relayUrl}:`, e);
+          }
+        });
+        
+        // Update display with what we have now
+        updateHighscoresDisplay();
+        
+        // Set a timeout to update again after all fetches complete
+        setTimeout(() => {
+          updateHighscoresDisplay();
+          updateStats();
+          
+          // Close all temporary relay connections
+          relayConnections.forEach(relay => {
+            try { relay.close(); } catch (e) {}
+          });
+        }, 5000);
+      }
+      
+      // Update highscores display
+      function updateHighscoresDisplay() {
+        const loadingElement = document.getElementById('loading');
+        const highscoreList = document.getElementById('highscore-list');
+        
+        if (filteredHighscores.length === 0) {
+          displayNoHighscores();
+          return;
+        }
+        
+        // Hide loading
+        loadingElement.style.display = 'none';
+        
+        // Create highscore list HTML
+        const listElement = highscoreList.querySelector('ul');
+        listElement.innerHTML = '';
+        
+        // Only display top 100
+        const topScores = filteredHighscores.slice(0, 100);
+        
+        topScores.forEach((highscore, index) => {
+          const metadata = profileMetadata[highscore.pubkey] || {
+            name: 'Anonymous',
+            picture: null
+          };
+          
+          const listItem = document.createElement('li');
+          
+          // Format timestamp
+          const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+          const scoreDate = new Date(highscore.timestamp || highscore.createdAt * 1000).toLocaleDateString(undefined, dateOptions);
+          
+          // Create initial letter for avatar fallback
+          const initialLetter = metadata.name.charAt(0).toUpperCase();
+          
+          // Create highscore item HTML
+          listItem.innerHTML = `
+            <div class="highscore-item">
+              <div class="rank">${index + 1}</div>
+              <div class="profile-pic">
+                ${metadata.picture 
+                  ? `<img src="${metadata.picture}" alt="${metadata.name}" onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:24px;\\'>${initialLetter}</div>'">` 
+                  : `<div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:24px;">${initialLetter}</div>`}
+              </div>
+              <div class="player-info">
+                <div class="player-name">${metadata.name}</div>
+                <div class="timestamp">${scoreDate}</div>
+              </div>
+              <div class="score">${highscore.score} pts</div>
+            </div>
+          `;
+          
+          listElement.appendChild(listItem);
+        });
+        
+        // Update stats
+        updateStats();
+      }
+      
+      // Update stats display
+      function updateStats() {
+        const totalPlayers = document.getElementById('total-players');
+        const topScore = document.getElementById('top-score');
+        const avgScore = document.getElementById('avg-score');
+        
+        // Calculate stats
+        const uniquePlayers = new Set(filteredHighscores.map(h => h.pubkey)).size;
+        const highest = filteredHighscores.length > 0 ? Math.max(...filteredHighscores.map(h => h.score)) : 0;
+        
+        // Calculate average score
+        let average = 0;
+        if (filteredHighscores.length > 0) {
+          const sum = filteredHighscores.reduce((acc, h) => acc + h.score, 0);
+          average = Math.round(sum / filteredHighscores.length);
+        }
+        
+        // Update display
+        totalPlayers.textContent = uniquePlayers;
+        topScore.textContent = highest;
+        avgScore.textContent = average;
+      }
+      
+      // Display message when no highscores found
+      function displayNoHighscores() {
+        const loadingElement = document.getElementById('loading');
+        loadingElement.textContent = 'No high scores found for this time period.';
+      }
+      
+      // Display error message
+      function displayError(message) {
+        const loadingElement = document.getElementById('loading');
+        loadingElement.textContent = message;
+        loadingElement.style.color = '#CF6679';
+      }
+    </script>
+  </body>
+</html>
