@@ -360,6 +360,165 @@
                 height: 150px;
             }
         }
+        
+        /* Kill feed styles */
+        #kill-feed {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            width: 300px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        .kill-feed-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .kill-entry {
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        
+        .kill-entry.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .kill-entry.fading {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        
+        .kill-entry img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .kill-entry .name {
+            margin: 0 5px;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90px;
+        }
+        
+        .kill-entry .killer-name {
+            color: #BB86FC;
+        }
+        
+        .kill-entry .victim-name {
+            color: #CF6679;
+        }
+        
+        .kill-entry .kill-icon {
+            margin: 0 5px;
+            color: #FFFFFF;
+        }
+        
+        .kill-entry .points-gained {
+            margin-left: auto;
+            color: #03DAC6;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            #kill-feed {
+                width: 250px;
+            }
+            
+            .kill-entry .name {
+                max-width: 70px;
+                font-size: 12px;
+            }
+            
+            .kill-entry img {
+                width: 20px;
+                height: 20px;
+            }
+        }
+        
+        /* Chat styles */
+        #chat-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            max-width: 90%;
+            pointer-events: auto;
+            z-index: 30;
+        }
+        
+        #chat-messages {
+            background-color: rgba(30, 30, 30, 0.8);
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            display: none;
+        }
+        
+        .chat-message {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+        
+        .chat-message-sender {
+            font-weight: bold;
+            color: #BB86FC;
+        }
+        
+        #chat-input-container {
+            display: none;
+            flex-direction: row;
+            gap: 5px;
+        }
+        
+        #chat-input {
+            flex-grow: 1;
+            background-color: rgba(30, 30, 30, 0.8);
+            border: 1px solid #BB86FC;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        #chat-send {
+            background-color: #BB86FC;
+            color: black;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #chat-toggle {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #BB86FC;
+            color: black;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -1357,18 +1516,18 @@
                     try {
                         // Create a canvas for the circular mask
                         const canvas = document.createElement('canvas');
-                        canvas.width = image.width;
-                        canvas.height = image.height;
+                        canvas.width = 20; // Match the head size
+                        canvas.height = 20; // Match the head size
                         const ctx = canvas.getContext('2d', { willReadFrequently: true });
                         
                         // Draw a circular mask
                         ctx.beginPath();
-                        ctx.arc(image.width / 2, image.height / 2, image.width / 2, 0, Math.PI * 2);
+                        ctx.arc(10, 10, 10, 0, Math.PI * 2);
                         ctx.closePath();
                         ctx.clip();
                         
-                        // Draw the image
-                        ctx.drawImage(image, 0, 0);
+                        // Draw the image scaled to fit
+                        ctx.drawImage(image, 0, 0, 20, 20);
                         
                         // Create texture from canvas
                         this.textures.addCanvas(key, canvas);
@@ -1625,7 +1784,7 @@
                 const boostIndicator = document.getElementById('boost-indicator');
                 
                 if (timeLeft > 0) {
-                    boostIndicator.textContent = `ðŸš€ BOOST: ${timeLeft}s`;
+                    boostIndicator.textContent = `🚀 BOOST: ${timeLeft}s`;
                     
                     // Update recursively
                     setTimeout(() => this.updateBoostIndicator(), 100);
@@ -1771,18 +1930,18 @@
                     try {
                         // Create a canvas for the circular mask
                         const canvas = document.createElement('canvas');
-                        canvas.width = image.width;
-                        canvas.height = image.height;
+                        canvas.width = 20; // Match the head size
+                        canvas.height = 20; // Match the head size
                         const ctx = canvas.getContext('2d', { willReadFrequently: true });
                         
                         // Draw a circular mask
                         ctx.beginPath();
-                        ctx.arc(image.width / 2, image.height / 2, image.width / 2, 0, Math.PI * 2);
+                        ctx.arc(10, 10, 10, 0, Math.PI * 2);
                         ctx.closePath();
                         ctx.clip();
                         
-                        // Draw the image
-                        ctx.drawImage(image, 0, 0);
+                        // Draw the image scaled to fit
+                        ctx.drawImage(image, 0, 0, 20, 20);
                         
                         // Create texture from canvas
                         this.textures.addCanvas(key, canvas);
@@ -2350,8 +2509,8 @@
                 }
             }
         }
-// This file contains all the JavaScript enhancements needed for the Nostr Snake game
-// To implement the requested features, add this code to the index.html file before the closing </script> tag
+
+// ==================== ENHANCEMENT CODE STARTS HERE ====================
 
 // ==================== CONFIGURATION UPDATES ====================
 
@@ -2369,9 +2528,6 @@ const GAME_EVENT_KINDS = {
     DEATH: 1000009,
     CHAT: 1000010
 };
-
-// Current game is using GAME_EVENT_KIND = 1000001 for all events except highscores
-// We'll update the event publishing to use the specific kinds
 
 // ==================== PROFILE CACHING ====================
 
@@ -2429,99 +2585,6 @@ function addKillFeedHTML() {
     `;
     
     uiContainer.appendChild(killFeedDiv);
-    
-    // Add CSS styles
-    const style = document.createElement('style');
-    style.textContent = `
-        #kill-feed {
-            position: absolute;
-            top: 120px;
-            right: 20px;
-            width: 300px;
-            pointer-events: none;
-            z-index: 20;
-        }
-        
-        .kill-feed-container {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .kill-entry {
-            background-color: rgba(30, 30, 30, 0.8);
-            padding: 8px;
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            opacity: 0;
-            transform: translateX(50px);
-            transition: opacity 0.5s, transform 0.5s;
-        }
-        
-        .kill-entry.visible {
-            opacity: 1;
-            transform: translateX(0);
-        }
-        
-        .kill-entry.fading {
-            opacity: 0;
-            transform: translateX(-50px);
-        }
-        
-        .kill-entry img {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-        
-        .kill-entry .name {
-            margin: 0 5px;
-            font-size: 14px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 90px;
-        }
-        
-        .kill-entry .killer-name {
-            color: #BB86FC;
-        }
-        
-        .kill-entry .victim-name {
-            color: #CF6679;
-        }
-        
-        .kill-entry .kill-icon {
-            margin: 0 5px;
-            color: #FFFFFF;
-        }
-        
-        .kill-entry .points-gained {
-            margin-left: auto;
-            color: #03DAC6;
-            font-weight: bold;
-        }
-        
-        @media (max-width: 768px) {
-            #kill-feed {
-                width: 250px;
-            }
-            
-            .kill-entry .name {
-                max-width: 70px;
-                font-size: 12px;
-            }
-            
-            .kill-entry img {
-                width: 20px;
-                height: 20px;
-            }
-        }
-    `;
-    
-    document.head.appendChild(style);
 }
 
 // Initialize kill feed when page loads
@@ -2542,7 +2605,7 @@ function addKillToFeed(killerPubkey, victimPubkey, pointsGained) {
     const killEntry = document.createElement('div');
     killEntry.className = 'kill-entry';
     
-    // Create killer profile picture
+   // Create killer profile picture
     const killerPic = document.createElement('img');
     killerPic.src = killerMeta.picture || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23BB86FC"/><text x="12" y="16" font-size="12" text-anchor="middle" fill="black">' + (killerMeta.name.charAt(0).toUpperCase()) + '</text></svg>';
     killerPic.alt = killerMeta.name;
@@ -3047,6 +3110,9 @@ handleGameEvent = function(event) {
                     gameScene.otherSnakes[pubkey].isPredator = content.killer.isPredator || false;
                 }
             }
+        } else if (content.type === 'chat') {
+            // Handle chat message
+            window.addChatMessage(pubkey, content.message);
         }
         
         // Update players count
@@ -3074,6 +3140,7 @@ publishGameEvent = async function(content) {
                 case 'join': kind = GAME_EVENT_KINDS.PLAYER_JOIN; break;
                 case 'kill': kind = GAME_EVENT_KINDS.KILL; break;
                 case 'boost': kind = GAME_EVENT_KINDS.BOOST; break;
+                case 'chat': kind = GAME_EVENT_KINDS.CHAT; break;
             }
         }
         
@@ -3175,82 +3242,6 @@ function addChatSystem() {
     
     uiContainer.appendChild(chatContainer);
     
-    // Add CSS styles
-    const style = document.createElement('style');
-    style.textContent = `
-        #chat-container {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 400px;
-            max-width: 90%;
-            pointer-events: auto;
-            z-index: 30;
-        }
-        
-        #chat-messages {
-            background-color: rgba(30, 30, 30, 0.8);
-            border-radius: 5px;
-            padding: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            display: none;
-        }
-        
-        .chat-message {
-            margin-bottom: 5px;
-            word-wrap: break-word;
-        }
-        
-        .chat-message-sender {
-            font-weight: bold;
-            color: #BB86FC;
-        }
-        
-        #chat-input-container {
-            display: none;
-            flex-direction: row;
-            gap: 5px;
-        }
-        
-        #chat-input {
-            flex-grow: 1;
-            background-color: rgba(30, 30, 30, 0.8);
-            border: 1px solid #BB86FC;
-            color: white;
-            padding: 8px;
-            border-radius: 5px;
-        }
-        
-        #chat-send {
-            background-color: #BB86FC;
-            color: black;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        #chat-toggle {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #BB86FC;
-            color: black;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-size: 20px;
-            cursor: pointer;
-        }
-    `;
-    
-    document.head.appendChild(style);
-    
     // Set up chat functionality
     const chatToggle = document.getElementById('chat-toggle');
     const chatMessages = document.getElementById('chat-messages');
@@ -3339,36 +3330,12 @@ window.addEventListener('load', function() {
     addChatSystem();
 });
 
-// Extend handleGameEvent to handle chat messages
-const originalHandleGameEventWithChat = handleGameEvent;
-handleGameEvent = function(event) {
-    originalHandleGameEventWithChat(event);
-    
-    try {
-        const content = JSON.parse(event.content);
-        const pubkey = event.pubkey;
-        
-        // Skip our own events
-        if (pubkey === playerPublicKey) {
-            return;
-        }
-        
-        if (content.type === 'chat') {
-            // Handle chat message
-            window.addChatMessage(pubkey, content.message);
-        }
-    } catch (error) {
-        console.error('Error handling game event:', error);
-    }
-};
-
 // ==================== INITIALIZE ENHANCEMENT ====================
 
 // Setup enhancements when the page loads
 window.addEventListener('load', function() {
     console.log('Nostr Snake Game Enhancements Loaded!');
 });
-        
     </script>
 </body>
 </html>
