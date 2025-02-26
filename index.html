@@ -2350,6 +2350,1025 @@
                 }
             }
         }
+// This file contains all the JavaScript enhancements needed for the Nostr Snake game
+// To implement the requested features, add this code to the index.html file before the closing </script> tag
+
+// ==================== CONFIGURATION UPDATES ====================
+
+// Update configuration constants
+const UPDATE_RATE = 14.5; // ~69 updates per second (1000ms/69)
+const GAME_EVENT_KINDS = {
+    HEARTBEAT: 1000001,
+    HIGHSCORE: 1000002,
+    MOVEMENT: 1000003,
+    FOOD_SPAWN: 1000004,
+    FOOD_EATEN: 1000005,
+    PLAYER_JOIN: 1000006,
+    KILL: 1000007,
+    BOOST: 1000008,
+    DEATH: 1000009,
+    CHAT: 1000010
+};
+
+// Current game is using GAME_EVENT_KIND = 1000001 for all events except highscores
+// We'll update the event publishing to use the specific kinds
+
+// ==================== PROFILE CACHING ====================
+
+// Initialize profile cache
+const profileCache = {
+    loadFromCache: function() {
+        try {
+            const cached = localStorage.getItem('nostr_snake_profiles');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                // Only use cache if it's less than 24 hours old
+                if (parsed.timestamp && (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000)) {
+                    return parsed.profiles || {};
+                }
+            }
+        } catch (e) {
+            console.error('Error loading profile cache', e);
+        }
+        return {};
+    },
+    
+    saveToCache: function(profiles) {
+        try {
+            localStorage.setItem('nostr_snake_profiles', JSON.stringify({
+                profiles: profiles,
+                timestamp: Date.now()
+            }));
+        } catch (e) {
+            console.error('Error saving profile cache', e);
+        }
+    }
+};
+
+// Load cached profiles at startup
+const cachedProfiles = profileCache.loadFromCache();
+playerMetadata = {...cachedProfiles};
+
+// Cache profiles periodically
+setInterval(() => {
+    profileCache.saveToCache(playerMetadata);
+}, 60000); // Save every minute
+
+// ==================== KILL FEED SYSTEM ====================
+
+// Add kill feed HTML to the UI
+function addKillFeedHTML() {
+    const uiContainer = document.getElementById('ui-container');
+    
+    const killFeedDiv = document.createElement('div');
+    killFeedDiv.id = 'kill-feed';
+    killFeedDiv.innerHTML = `
+        <div class="kill-feed-container">
+            <!-- Kill entries will be added here -->
+        </div>
+    `;
+    
+    uiContainer.appendChild(killFeedDiv);
+    
+    // Add CSS styles
+    const style = document.createElement('style');
+    style.textContent = `
+        #kill-feed {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            width: 300px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        .kill-feed-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .kill-entry {
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        
+        .kill-entry.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .kill-entry.fading {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        
+        .kill-entry img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .kill-entry .name {
+            margin: 0 5px;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90px;
+        }
+        
+        .kill-entry .killer-name {
+            color: #BB86FC;
+        }
+        
+        .kill-entry .victim-name {
+            color: #CF6679;
+        }
+        
+        .kill-entry .kill-icon {
+            margin: 0 5px;
+            color: #FFFFFF;
+        }
+        
+        .kill-entry .points-gained {
+            margin-left: auto;
+            color: #03DAC6;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            #kill-feed {
+                width: 250px;
+            }
+            
+            .kill-entry .name {
+                max-width: 70px;
+                font-size: 12px;
+            }
+            
+            .kill-entry img {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+}
+
+// Initialize kill feed when page loads
+window.addEventListener('load', function() {
+    addKillFeedHTML();
+});
+
+// Add a kill to the kill feed
+function addKillToFeed(killerPubkey, victimPubkey, pointsGained) {
+    const killFeedContainer = document.querySelector('.kill-feed-container');
+    if (!killFeedContainer) return;
+    
+    // Get metadata for both players
+    const killerMeta = playerMetadata[killerPubkey] || { name: 'Unknown', picture: null };
+    const victimMeta = playerMetadata[victimPubkey] || { name: 'Unknown', picture: null };
+    
+    // Create kill entry element
+    const killEntry = document.createElement('div');
+    killEntry.className = 'kill-entry';
+    
+    // Create killer profile picture
+    const killerPic = document.createElement('img');
+    killerPic.src = killerMeta.picture || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23BB86FC"/><text x="12" y="16" font-size="12" text-anchor="middle" fill="black">' + (killerMeta.name.charAt(0).toUpperCase()) + '</text></svg>';
+    killerPic.alt = killerMeta.name;
+    
+    // Create killer name
+    const killerName = document.createElement('span');
+    killerName.className = 'name killer-name';
+    killerName.textContent = killerMeta.name;
+    
+    // Create kill icon
+    const killIcon = document.createElement('span');
+    killIcon.className = 'kill-icon';
+    killIcon.textContent = '🐍';
+    
+    // Create victim name
+    const victimName = document.createElement('span');
+    victimName.className = 'name victim-name';
+    victimName.textContent = victimMeta.name;
+    
+    // Create victim profile picture
+    const victimPic = document.createElement('img');
+    victimPic.src = victimMeta.picture || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23BB86FC"/><text x="12" y="16" font-size="12" text-anchor="middle" fill="black">' + (victimMeta.name.charAt(0).toUpperCase()) + '</text></svg>';
+    victimPic.alt = victimMeta.name;
+    
+    // Create points gained
+    const points = document.createElement('span');
+    points.className = 'points-gained';
+    points.textContent = '+' + pointsGained;
+    
+    // Add all elements to kill entry
+    killEntry.appendChild(killerPic);
+    killEntry.appendChild(killerName);
+    killEntry.appendChild(killIcon);
+    killEntry.appendChild(victimName);
+    killEntry.appendChild(victimPic);
+    killEntry.appendChild(points);
+    
+    // Add to kill feed
+    killFeedContainer.prepend(killEntry);
+    
+    // Animate entry
+    setTimeout(() => {
+        killEntry.classList.add('visible');
+    }, 50);
+    
+    // Remove entry after 5 seconds
+    setTimeout(() => {
+        killEntry.classList.add('fading');
+        killEntry.classList.remove('visible');
+        
+        setTimeout(() => {
+            if (killEntry.parentNode === killFeedContainer) {
+                killFeedContainer.removeChild(killEntry);
+            }
+        }, 500);
+    }, 5000);
+    
+    // Limit to 5 entries
+    const entries = killFeedContainer.querySelectorAll('.kill-entry');
+    if (entries.length > 5) {
+        for (let i = 5; i < entries.length; i++) {
+            killFeedContainer.removeChild(entries[i]);
+        }
+    }
+    
+    // Play sound effect (if game scene exists)
+    if (gameScene && gameScene.sound) {
+        if (killerPubkey === playerPublicKey) {
+            // Player got a kill
+            if (gameScene.killSound) {
+                gameScene.killSound.play({ volume: 0.5 });
+            }
+        } else if (victimPubkey === playerPublicKey) {
+            // Player was killed
+            if (gameScene.deathSound) {
+                gameScene.deathSound.play({ volume: 0.5 });
+            }
+        } else {
+            // Another player got a kill
+            if (gameScene.otherKillSound) {
+                gameScene.otherKillSound.play({ volume: 0.3 });
+            }
+        }
+    }
+}
+
+// ==================== KILL COUNTER SYSTEM ====================
+
+// Update GameScene to include kills tracking
+class GameSceneEnhanced extends Phaser.Scene {
+    constructor() {
+        super('GameSceneEnhanced');
+    }
+    
+    init() {
+        // Call original init
+        GameScene.prototype.init.call(this);
+        
+        // Add kills tracking
+        this.kills = 0;
+        this.isPredator = false;
+        
+        // Ensure otherSnakes have kills property
+        for (const pubkey in this.otherSnakes) {
+            this.otherSnakes[pubkey].kills = 0;
+            this.otherSnakes[pubkey].isPredator = false;
+        }
+    }
+    
+    preload() {
+        GameScene.prototype.preload.call(this);
+        
+        // Preload additional assets
+        this.load.spritesheet('skull', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAHpSURBVDjLpZNraxNRFIWzUzGCYNEUKQRLQYXi+KL4QOxPtP3RWlARdRBUUBT1F4iQUEF0kHbSJjGmTcyD5PGYN7Uz05lJUrWBJ3KbJ2iaWJyEm3vPufe7Z+9zN5EAEPEwFEVBoXgDjR9VVNrfUW53kS8UMQ9PrEmDnFjt9XocKpXKL9TrdQwGAwFnYtTr9XQikVQkRzE0LczhcBDLHEQpmbvw9C2E3K9htlgSZrGcxF3cNPvA63kSutNVQitN0XC7/SeC1+OZitPI5zRUKh9RKtpYWs9BUA2sVrZgfPuFi/kgdqoG/5RcJJRdNPIWQs5vLCZ90HQb39QqKiUbK7IFXugEsU/5ktCSWmJJ2tLrTkOt26BqNlZzOXw3BPxTZdio1RH0f0FQWJ6KJZo1hzlZZ71ez41GIxwOh72ZywEPOICjqmpXJJKQVEUFpL+Iqoa28l3XncJwOORwOJQ5YM0h42ZlgR9ni5kVZVEIAQddjz4aDodtzthULpcrE4KEtfU1CKk3pA4V0EBR4NyEHsAX9mJ+5RXi4rPtjI2ZF7T9fh8n3YF9sMe5ofd3Du2ch471QCbQF8uY92VgPpmdkQZ9EjaBPngYx/n5+c7MzJPQ+d7+OR3H0Un5BxnQ0dHR1CKHS7wTz7OUzWbVjcZ2JpPJbv8DGxz7FimBjgIAAAAASUVORK5CYII=', { frameWidth: 16, frameHeight: 16 });
+        this.load.audio('kill', 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+NAwAAAAAAAAAAAAFhpbmcAAAAPAAAAAwAAA6UAkJCQkJCQkJCQkJCQkJCQkJCQwMDAwMDAwMDAwMDAwMDAwMDA7u7u7u7u7u7u7u7u7u7u7u7u//////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAA6VD5y2lAAAAAAAAAAAAAAAAAAAA/+RQwAAABLBQAbxzAAJqOCDnDeAgBQJkJdGIEQIhBCAhhx+fP8+IAQggBPocQAgBCDmef5CEP/OCEHnBAcEH/5wzh///4IOCfggIPgg5+fwQh//+pVlLy0lFbJqupFQIaCxUMjEylV6l6bzk0pS66UokfBIRaKgb2ew5wzsdjhKrNbDvLDJ5dJKyN6zTUy1Z2s2VsZ0/0VoNzZXz/UorHIpWMa1Gw0MDEwNrEw9C72tC54/VHB0X1RS9kZmrMbKszP/5FLARAASwUCrLPAALDkEK6Q9kRAYlLwW3pbXW2yxdS0/tLS41M1UpyzlVtWtQpZZKkarIlNTWnJrWs41KHI3WdaSlkhkSJH//yH/4/5//5EpqSok4ONWnZrTbtsqTkoW6SSptlTu2UpJNZJL///8xLZK22rZbbJOTk5P/////////////////k2n4Sw4SMaHgcGxvGgqFBYOFBsMgWF/cq9KAQDAEaKDSLbfLeVyXVHBP/lBr/+Bh+s2+/8YnKCvPdN3Svqt9/KJ//6Z1VO/5f8zYwX+t/5t2/wX75d9JO+/1YgXe97nvf+UJDSpiQtUi5IkUZJ//+RSQMoANKGsT+dkAA38XYn89IAGiSRQRqSBJ4wZZnfFQPb6J9SrfwkKFCcKhQTCSKe9JdJCJIc6cKFCcHQnf////////////zb/Nv//////////////////////////+l0u7q5y6TSgNBwyjhtQjGn01MYyUJQqY4CDW3////tbnLq6X/hDgYRJ4uODYOQouHpGQfP//9EZYVC5gOAuIJNvNRe5TEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVX/+RSQVgAVOLsT+ewAAvIXY389gAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDCqqqqqqqqq/+RSwGwAVKLsV+ewACvAXYr89gAKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
+        this.load.audio('death', 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+NAwAAAAAAAAAAAAFhpbmcAAAAPAAAAAwAAA6UAkJCQkJCQkJCQkJCQkJCQkJCQwMDAwMDAwMDAwMDAwMDAwMDA7u7u7u7u7u7u7u7u7u7u7u7u//////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAA6VD5y2lAAAAAAAAAAAAAAAAAAAA/+RQwAAABLBQAbxzAAJqOCDnDeAgBQJkJdGIEQIhBCAhhx+fP8+IAQggBPocQAgBCDmef5CEP/OCEHnBAcEH/5wzh///4IOCfggIPgg5+fwQh//+pVlLy0lFbJqupFQIaCxUMjEylV6l6bzk0pS66UokfBIRaKgb2ew5wzsdjhKrNbDvLDJ5dJKyN6zTUy1Z2s2VsZ0/0VoNzZXz/UorHIpWMa1Gw0MDEwNrEw9C72tC54/VHB0X1RS9kZmrMbKszP/5FLARAASwUCrLPAALDkEK6Q9kRAYlLwW3pbXW2yxdS0/tLS41M1UpyzlVtWtQpZZKkarIlNTWnJrWs41KHI3WdaSlkhkSJH//yH/4/5//5EpqSok4ONWnZrTbtsqTkoW6SSptlTu2UpJNZJL///8xLZK22rZbbJOTk5P/////////////////k2n4Sw4SMaHgcGxvGgqFBYOFBsMgWF/cq9KAQDAEaKDSLbfLeVyXVHBP/lBr/+Bh+s2+/8YnKCvPdN3Svqt9/KJ//6Z1VO/5f8zYwX+t/5t2/wX75d9JO+/1YgXe97nvf+UJDSpiQtUi5IkUZJ//+RSQMoANKGsT+dkAA38XYn89IAGiSRQRqSBJ4wZZnfFQPb6J9SrfwkKFCcKhQTCSKe9JdJCJIc6cKFCcHQnf////////////zb/Nv//////////////////////////+l0u7q5y6TSgNBwyjhtQjGn01MYyUJQqY4CDW3////tbnLq6X/hDgYRJ4uODYOQouHpGQfP//9EZYVC5gOAuIJNvNRe5TEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVX/+RSQVgAVOLsT+ewAAvIXY389gAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDCqqqqqqqqq/+RSwGwAVKLsV+ewACvAXYr89gAKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
+        this.load.audio('otherKill', 'data:audio/mp3;base64,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');
+        
+        // Create texture for predator glow
+        const graphics = this.add.graphics();
+        graphics.fillStyle(0xff0000, 1);
+        graphics.fillCircle(50, 50, 50);
+        graphics.generateTexture('predator-glow', 100, 100);
+        graphics.destroy();
+    }
+    
+    create() {
+        GameScene.prototype.create.call(this);
+        
+        // Set up sounds
+        this.killSound = this.sound.add('kill');
+        this.deathSound = this.sound.add('death');
+        this.otherKillSound = this.sound.add('otherKill');
+        
+        // Create predator effect for player
+        this.predatorEffect = this.add.sprite(this.head.x, this.head.y, 'predator-glow');
+        this.predatorEffect.setBlendMode(Phaser.BlendModes.ADD);
+        this.predatorEffect.setDepth(5);
+        this.predatorEffect.setAlpha(0.3);
+        this.predatorEffect.setVisible(false);
+        
+        // Create kill counter for player
+        this.killCounter = this.add.text(0, 0, '💀 0', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center'
+        });
+        this.killCounter.setDepth(15);
+        this.killCounter.setOrigin(0.5);
+        this.killCounter.setVisible(false);
+        
+        // Update player stats display
+        const statsDiv = document.getElementById('stats');
+        if (statsDiv) {
+            const killsP = document.createElement('p');
+            killsP.innerHTML = 'Kills: <span id="player-kills" class="highlight">0</span>';
+            statsDiv.appendChild(killsP);
+        }
+    }
+    
+    updateKillCounter() {
+        // Update kill counter text
+        this.killCounter.setText('💀 ' + this.kills);
+        
+        // Update stats display
+        const killsElement = document.getElementById('player-kills');
+        if (killsElement) {
+            killsElement.textContent = this.kills;
+        }
+        
+        // Update predator status
+        if (this.kills >= 3 && !this.isPredator) {
+            this.isPredator = true;
+            this.predatorEffect.setVisible(true);
+            
+            // Show message
+            const boostIndicator = document.getElementById('boost-indicator');
+            boostIndicator.textContent = '🔥 PREDATOR STATUS ACHIEVED! 🔥';
+            boostIndicator.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+            boostIndicator.style.display = 'block';
+            
+            setTimeout(() => {
+                boostIndicator.style.display = 'none';
+            }, 3000);
+        }
+    }
+    
+    update(time, delta) {
+        // Call original update method
+        GameScene.prototype.update.call(this, time, delta);
+        
+        // Update predator effect
+        if (this.isPredator && this.predatorEffect) {
+            this.predatorEffect.x = this.head.x;
+            this.predatorEffect.y = this.head.y;
+            
+            // Pulsating effect
+            const pulseFactor = 0.5 + Math.abs(Math.sin(time / 500)) * 0.3;
+            this.predatorEffect.setScale(pulseFactor);
+        }
+        
+        // Update kill counter position
+        if (this.kills > 0 && this.killCounter) {
+            this.killCounter.x = this.head.x;
+            this.killCounter.y = this.head.y - 40;
+            this.killCounter.setVisible(true);
+        }
+        
+        // Update other snakes predator effects
+        for (const pubkey in this.otherSnakes) {
+            const snake = this.otherSnakes[pubkey];
+            
+            if (snake.isPredator && snake.predatorEffect && snake.sprites.length > 0) {
+                // Update predator effect position
+                snake.predatorEffect.x = snake.sprites[0].x;
+                snake.predatorEffect.y = snake.sprites[0].y;
+                
+                // Pulsating effect
+                const pulseFactor = 0.5 + Math.abs(Math.sin(time / 500)) * 0.3;
+                snake.predatorEffect.setScale(pulseFactor);
+            }
+            
+            // Update kill counter for other snake
+            if (snake.kills > 0 && snake.killCounter && snake.sprites.length > 0) {
+                snake.killCounter.x = snake.sprites[0].x;
+                snake.killCounter.y = snake.sprites[0].y - 40;
+            }
+        }
+    }
+    
+    eatEnemySnake(enemyPubkey) {
+        if (!this.otherSnakes[enemyPubkey]) return;
+        
+        const enemy = this.otherSnakes[enemyPubkey];
+        
+        // Calculate score gain
+        const scoreGain = Math.floor(enemy.length / 2);
+        
+        // Add to score and length
+        this.score += scoreGain;
+        this.snakeLength += Math.floor(scoreGain / 3);
+        
+        // Update stats display
+        document.getElementById('player-length').textContent = this.snakeLength;
+        document.getElementById('player-score').textContent = this.score;
+        
+        // Increment kill counter
+        this.kills++;
+        this.updateKillCounter();
+        
+        // Add to kill feed
+        addKillToFeed(playerPublicKey, enemyPubkey, scoreGain);
+        
+        // Publish kill event
+        publishGameEvent({
+            type: 'kill',
+            event_kind: GAME_EVENT_KINDS.KILL,
+            eatenPubkey: enemyPubkey,
+            position: {
+                x: this.head.x,
+                y: this.head.y
+            },
+            scoreGain: scoreGain,
+            killer: {
+                pubkey: playerPublicKey,
+                kills: this.kills,
+                isPredator: this.isPredator
+            }
+        });
+        
+        // Remove enemy snake
+        this.removeOtherSnake(enemyPubkey);
+        
+        // Update leaderboard
+        updateLeaderboard(playerPublicKey, this.score);
+    }
+    
+    createPlayerNameLabel(pubkey) {
+        if (!this.otherSnakes[pubkey]) return;
+        
+        // Call original method
+        GameScene.prototype.createPlayerNameLabel.call(this, pubkey);
+        
+        // Add kill counter for this snake
+        const snake = this.otherSnakes[pubkey];
+        const head = snake.sprites[0];
+        
+        snake.killCounter = this.add.text(head.x, head.y - 40, '💀 0', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center'
+        });
+        snake.killCounter.setDepth(15);
+        snake.killCounter.setOrigin(0.5);
+        snake.killCounter.setVisible(false);
+    }
+    
+    updateOtherSnake(pubkey, data) {
+        // Call original method
+        GameScene.prototype.updateOtherSnake.call(this, pubkey, data);
+        
+        if (!this.otherSnakes[pubkey]) return;
+        
+        // Update kill count
+        if (data.kills !== undefined) {
+            this.otherSnakes[pubkey].kills = data.kills;
+            
+            // Update kill counter
+            if (this.otherSnakes[pubkey].killCounter) {
+                this.otherSnakes[pubkey].killCounter.setText('💀 ' + data.kills);
+                this.otherSnakes[pubkey].killCounter.setVisible(data.kills > 0);
+            }
+        }
+        
+        // Update predator status
+        if (data.isPredator !== undefined) {
+            this.otherSnakes[pubkey].isPredator = data.isPredator;
+            
+            // Add predator effect if not already there
+            if (data.isPredator && !this.otherSnakes[pubkey].predatorEffect) {
+                const head = this.otherSnakes[pubkey].sprites[0];
+                const predatorGlow = this.add.sprite(head.x, head.y, 'predator-glow');
+                predatorGlow.setBlendMode(Phaser.BlendModes.ADD);
+                predatorGlow.setDepth(5);
+                predatorGlow.setAlpha(0.3);
+                this.otherSnakes[pubkey].predatorEffect = predatorGlow;
+            } else if (!data.isPredator && this.otherSnakes[pubkey].predatorEffect) {
+                this.otherSnakes[pubkey].predatorEffect.destroy();
+                this.otherSnakes[pubkey].predatorEffect = null;
+            }
+        }
+    }
+    
+    playerDeath(wasEaten = false, eaterPubkey = null) {
+        if (this.gameOver) return;
+        
+        // Call original method
+        GameScene.prototype.playerDeath.call(this, wasEaten, eaterPubkey);
+        
+        // Add to kill feed if eaten
+        if (wasEaten && eaterPubkey) {
+            addKillToFeed(eaterPubkey, playerPublicKey, Math.floor(this.snakeLength / 2));
+        }
+        
+        // Hide predator effect
+        if (this.predatorEffect) {
+            this.predatorEffect.setVisible(false);
+        }
+        
+        // Hide kill counter
+        if (this.killCounter) {
+            this.killCounter.setVisible(false);
+        }
+    }
+    
+    restartGame() {
+        // Call original method
+        GameScene.prototype.restartGame.call(this);
+        
+        // Reset kills
+        this.kills = 0;
+        this.isPredator = false;
+        
+        // Hide predator effect
+        if (this.predatorEffect) {
+            this.predatorEffect.setVisible(false);
+        }
+        
+        // Hide kill counter
+        if (this.killCounter) {
+            this.killCounter.setVisible(false);
+        }
+        
+        // Reset kills display
+        const killsElement = document.getElementById('player-kills');
+        if (killsElement) {
+            killsElement.textContent = '0';
+        }
+    }
+    
+    sendPositionUpdate() {
+        const currentTime = Date.now();
+        if (currentTime - lastStatePublishTime < UPDATE_RATE) {
+            return; // Only update at the specified rate (69 times per second)
+        }
+        
+        lastStatePublishTime = currentTime;
+        
+        // Only send update if position has changed
+        if (!this.lastPositionUpdate) {
+            this.lastPositionUpdate = { x: this.head.x, y: this.head.y, angle: this.snakeAngle };
+        }
+        
+        const dx = this.head.x - this.lastPositionUpdate.x;
+        const dy = this.head.y - this.lastPositionUpdate.y;
+        const da = this.snakeAngle - this.lastPositionUpdate.angle;
+        
+        if (Math.sqrt(dx * dx + dy * dy) > 20 || Math.abs(da) > 0.1) {
+            publishGameEvent({
+                type: 'position',
+                event_kind: GAME_EVENT_KINDS.MOVEMENT,
+                position: {
+                    x: this.head.x,
+                    y: this.head.y,
+                    angle: this.snakeAngle
+                },
+                score: this.score,
+                length: this.snakeLength,
+                boosted: this.boosted,
+                kills: this.kills,
+                isPredator: this.isPredator
+            });
+            
+            this.lastPositionUpdate = { x: this.head.x, y: this.head.y, angle: this.snakeAngle };
+        }
+    }
+}
+
+// ==================== OVERRIDE PHASER GAME CREATION ====================
+
+// Override game creation to use enhanced scene
+const originalStartGame = startGame;
+startGame = function() {
+    // Configure game
+    const config = {
+        type: Phaser.AUTO,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        parent: 'game-container',
+        backgroundColor: '#121212',
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { x: 0, y: 0 },
+                debug: false
+            }
+        },
+        scene: [ GameSceneEnhanced ] // Use enhanced scene
+    };
+    
+    // Create game
+    game = new Phaser.Game(config);
+    
+    // Set up resize handler
+    window.addEventListener('resize', () => {
+        game.scale.resize(window.innerWidth, window.innerHeight);
+    });
+};
+
+// ==================== OVERRIDE EVENT HANDLERS ====================
+
+// Update handleGameEvent to use specific event kinds
+const originalHandleGameEvent = handleGameEvent;
+handleGameEvent = function(event) {
+    if (!gameScene) return;
+    
+    try {
+        const content = JSON.parse(event.content);
+        const pubkey = event.pubkey;
+        
+        // Skip our own events
+        if (pubkey === playerPublicKey) {
+            return;
+        }
+        
+        if (content.type === 'position') {
+            // Update other snake position
+            gameScene.updateOtherSnake(pubkey, content);
+        } else if (content.type === 'food_eaten') {
+            // Remove food
+            gameScene.removeFood(content.foodId);
+        } else if (content.type === 'death') {
+            // Remove other snake
+            gameScene.removeOtherSnake(pubkey);
+        } else if (content.type === 'join') {
+            // A new player joined
+            gameScene.addOtherSnake(pubkey, content.position);
+        } else if (content.type === 'kill') {
+            // Someone killed another snake
+            if (content.eatenPubkey === playerPublicKey && !gameScene.gameOver) {
+                // We were eaten!
+                gameScene.playerDeath(true, pubkey);
+            } else {
+                // Remove the eaten snake
+                gameScene.removeOtherSnake(content.eatenPubkey);
+                
+                // Update the killer's score and kill count
+                gameScene.updateEnemyScore(pubkey, content.scoreGain);
+                
+                // Update kill feed
+                addKillToFeed(pubkey, content.eatenPubkey, content.scoreGain);
+                
+                // Update the killer's metrics
+                if (content.killer && gameScene.otherSnakes[pubkey]) {
+                    gameScene.otherSnakes[pubkey].kills = content.killer.kills || 0;
+                    gameScene.otherSnakes[pubkey].isPredator = content.killer.isPredator || false;
+                }
+            }
+        }
+        
+        // Update players count
+        document.getElementById('online-count').textContent = Object.keys(gameScene.otherSnakes).length + 1;
+    } catch (error) {
+        console.error('Error handling game event:', error);
+    }
+};
+
+// Override publishGameEvent to use specific event kinds
+const originalPublishGameEvent = publishGameEvent;
+publishGameEvent = async function(content) {
+    try {
+        // Determine event kind based on content.type or content.event_kind
+        let kind = GAME_EVENT_KINDS.HEARTBEAT; // Default
+        
+        if (content.event_kind) {
+            kind = content.event_kind;
+        } else {
+            // Map types to kinds
+            switch (content.type) {
+                case 'position': kind = GAME_EVENT_KINDS.MOVEMENT; break;
+                case 'food_eaten': kind = GAME_EVENT_KINDS.FOOD_EATEN; break;
+                case 'death': kind = GAME_EVENT_KINDS.DEATH; break;
+                case 'join': kind = GAME_EVENT_KINDS.PLAYER_JOIN; break;
+                case 'kill': kind = GAME_EVENT_KINDS.KILL; break;
+                case 'boost': kind = GAME_EVENT_KINDS.BOOST; break;
+            }
+        }
+        
+        const event = {
+            kind: kind,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: JSON.stringify(content)
+        };
+        
+        // Sign with NIP-07
+        const signedEvent = await window.nostr.signEvent(event);
+        
+        // Publish to all connected relays
+        const message = JSON.stringify(["EVENT", signedEvent]);
+        
+        for (const relayUrl in nostrRelays) {
+            try {
+                const relay = nostrRelays[relayUrl];
+                if (relay.readyState === WebSocket.OPEN) {
+                    relay.send(message);
+                }
+            } catch (err) {
+                console.error(`Error sending to relay ${relayUrl}:`, err);
+            }
+        }
+    } catch (error) {
+        console.error('Error publishing game event:', error);
+    }
+};
+
+// Override subscribeToGameEvents to subscribe to all event kinds
+const originalSubscribeToGameEvents = subscribeToGameEvents;
+subscribeToGameEvents = function(relay) {
+    // Subscribe to game events for all kinds
+    const gameSubscription = JSON.stringify([
+        "REQ",
+        "game_events_" + Math.random().toString(36).substring(2, 10),
+        {
+            "kinds": [
+                GAME_EVENT_KINDS.HEARTBEAT,
+                GAME_EVENT_KINDS.MOVEMENT,
+                GAME_EVENT_KINDS.FOOD_SPAWN,
+                GAME_EVENT_KINDS.FOOD_EATEN,
+                GAME_EVENT_KINDS.PLAYER_JOIN,
+                GAME_EVENT_KINDS.KILL,
+                GAME_EVENT_KINDS.BOOST,
+                GAME_EVENT_KINDS.DEATH,
+                GAME_EVENT_KINDS.CHAT
+            ],
+            "limit": 100
+        }
+    ]);
+    
+    relay.send(gameSubscription);
+    
+    // Subscribe to metadata for all profiles
+    const metadataSubscription = JSON.stringify([
+        "REQ",
+        "metadata_" + Math.random().toString(36).substring(2, 10),
+        {
+            "kinds": [0],
+            "limit": 100
+        }
+    ]);
+    
+    relay.send(metadataSubscription);
+    
+    // Subscribe to highscores
+    const highscoreSubscription = JSON.stringify([
+        "REQ",
+        "highscores_" + Math.random().toString(36).substring(2, 10),
+        {
+            "kinds": [GAME_EVENT_KINDS.HIGHSCORE],
+            "limit": 50
+        }
+    ]);
+    
+    relay.send(highscoreSubscription);
+};
+
+// ==================== CHAT SYSTEM ====================
+
+// Add chat functionality
+function addChatSystem() {
+    // Add chat HTML
+    const uiContainer = document.getElementById('ui-container');
+    
+    const chatContainer = document.createElement('div');
+    chatContainer.id = 'chat-container';
+    chatContainer.innerHTML = `
+        <div id="chat-messages"></div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Press Enter to chat...">
+            <button id="chat-send">Send</button>
+        </div>
+        <button id="chat-toggle">💬</button>
+    `;
+    
+    uiContainer.appendChild(chatContainer);
+    
+    // Add CSS styles
+    const style = document.createElement('style');
+    style.textContent = `
+        #chat-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            max-width: 90%;
+            pointer-events: auto;
+            z-index: 30;
+        }
+        
+        #chat-messages {
+            background-color: rgba(30, 30, 30, 0.8);
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            display: none;
+        }
+        
+        .chat-message {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+        
+        .chat-message-sender {
+            font-weight: bold;
+            color: #BB86FC;
+        }
+        
+        #chat-input-container {
+            display: none;
+            flex-direction: row;
+            gap: 5px;
+        }
+        
+        #chat-input {
+            flex-grow: 1;
+            background-color: rgba(30, 30, 30, 0.8);
+            border: 1px solid #BB86FC;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        #chat-send {
+            background-color: #BB86FC;
+            color: black;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #chat-toggle {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #BB86FC;
+            color: black;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+        }
+    `;
+    
+    document.head.appendChild(style);
+    
+    // Set up chat functionality
+    const chatToggle = document.getElementById('chat-toggle');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInputContainer = document.getElementById('chat-input-container');
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    
+    let chatOpen = false;
+    
+    chatToggle.addEventListener('click', () => {
+        chatOpen = !chatOpen;
+        
+        if (chatOpen) {
+            chatMessages.style.display = 'block';
+            chatInputContainer.style.display = 'flex';
+            chatInput.focus();
+        } else {
+            chatMessages.style.display = 'none';
+            chatInputContainer.style.display = 'none';
+        }
+    });
+    
+    // Send chat on button click
+    chatSend.addEventListener('click', sendChat);
+    
+    // Send chat on Enter key
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            sendChat();
+        }
+    });
+    
+    // Function to send chat
+    function sendChat() {
+        const message = chatInput.value.trim();
+        
+        if (message) {
+            // Clear input
+            chatInput.value = '';
+            
+            // Add to local chat
+            addChatMessage(playerPublicKey, message);
+            
+            // Publish chat event
+            publishGameEvent({
+                type: 'chat',
+                event_kind: GAME_EVENT_KINDS.CHAT,
+                message: message
+            });
+        }
+    }
+    
+    // Function to add chat message to display
+    window.addChatMessage = function(pubkey, message) {
+        const metadata = playerMetadata[pubkey] || { name: 'Anonymous' };
+        
+        const messageElement = document.createElement('div');
+        messageElement.className = 'chat-message';
+        
+        const senderElement = document.createElement('span');
+        senderElement.className = 'chat-message-sender';
+        senderElement.textContent = metadata.name + ': ';
+        
+        const textElement = document.createElement('span');
+        textElement.className = 'chat-message-text';
+        textElement.textContent = message;
+        
+        messageElement.appendChild(senderElement);
+        messageElement.appendChild(textElement);
+        
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // If chat is closed, flash the toggle button
+        if (!chatOpen) {
+            chatToggle.style.backgroundColor = '#03DAC6';
+            setTimeout(() => {
+                chatToggle.style.backgroundColor = '#BB86FC';
+            }, 1000);
+        }
+    };
+}
+
+// Initialize chat system when page loads
+window.addEventListener('load', function() {
+    addChatSystem();
+});
+
+// Extend handleGameEvent to handle chat messages
+const originalHandleGameEventWithChat = handleGameEvent;
+handleGameEvent = function(event) {
+    originalHandleGameEventWithChat(event);
+    
+    try {
+        const content = JSON.parse(event.content);
+        const pubkey = event.pubkey;
+        
+        // Skip our own events
+        if (pubkey === playerPublicKey) {
+            return;
+        }
+        
+        if (content.type === 'chat') {
+            // Handle chat message
+            window.addChatMessage(pubkey, content.message);
+        }
+    } catch (error) {
+        console.error('Error handling game event:', error);
+    }
+};
+
+// ==================== INITIALIZE ENHANCEMENT ====================
+
+// Setup enhancements when the page loads
+window.addEventListener('load', function() {
+    console.log('Nostr Snake Game Enhancements Loaded!');
+});
+        
     </script>
 </body>
 </html>
