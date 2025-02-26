@@ -1,628 +1,3137 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>High Scores - Nostr Snake Game</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snakes on a Relay - Nostr Edition</title>
+    <!-- Phaser library -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <!-- Bootstrap for UI elements -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      :root {
-          --bg-color: #121212;
-          --primary-color: #BB86FC;
-          --secondary-color: #03DAC6;
-          --text-color: #FFFFFF;
-          --panel-bg: #1E1E1E;
-          --danger-color: #CF6679;
-      }
-      
-      body {
-          background-color: var(--bg-color);
-          color: var(--text-color);
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      }
-      
-      .header {
-          margin-top: 20px;
-      }
-      
-      h1 {
-          color: var(--primary-color);
-          text-align: center;
-      }
-      
-      .highscore-item {
-          background-color: var(--panel-bg);
-          border-radius: 8px;
-          margin-bottom: 10px;
-          padding: 15px;
-          display: flex;
-          align-items: center;
-          transition: transform 0.2s ease-in-out;
-      }
-      
-      .highscore-item:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-      }
-      
-      .rank {
-          font-size: 24px;
-          font-weight: bold;
-          width: 40px;
-          color: var(--secondary-color);
-      }
-      
-      .profile-pic {
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          margin-right: 15px;
-          background-color: var(--primary-color);
-          overflow: hidden;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-      }
-      
-      .profile-pic img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-      }
-      
-      .player-info {
-          flex-grow: 1;
-      }
-      
-      .player-name {
-          font-weight: bold;
-          font-size: 18px;
-      }
-      
-      .score {
-          font-weight: bold;
-          color: var(--primary-color);
-          font-size: 20px;
-      }
-      
-      .timestamp {
-          font-size: 12px;
-          opacity: 0.7;
-      }
-      
-      #loading {
-          margin-top: 50px;
-          font-size: 20px;
-          color: var(--primary-color);
-      }
-      
-      .btn-dark {
-          background-color: #333;
-          border: none;
-      }
-      
-      .btn-dark:hover {
-          background-color: #444;
-      }
-      
-      .stats-container {
-          margin-top: 20px;
-          margin-bottom: 30px;
-          display: flex;
-          justify-content: center;
-          gap: 20px;
-      }
-      
-      .stat-card {
-          background-color: var(--panel-bg);
-          padding: 15px;
-          border-radius: 8px;
-          text-align: center;
-          width: 150px;
-      }
-      
-      .stat-label {
-          color: var(--secondary-color);
-          font-size: 14px;
-          margin-bottom: 5px;
-      }
-      
-      .stat-value {
-          font-size: 22px;
-          font-weight: bold;
-          color: var(--primary-color);
-      }
-      
-      .filter-buttons {
-          display: flex;
-          justify-content: center;
-          gap: 10px;
-          margin-bottom: 20px;
-      }
-      
-      .filter-btn {
-          background-color: var(--panel-bg);
-          color: var(--text-color);
-          border: 1px solid var(--primary-color);
-          padding: 5px 15px;
-          border-radius: 20px;
-          cursor: pointer;
-      }
-      
-      .filter-btn.active {
-          background-color: var(--primary-color);
-          color: black;
-      }
+        :root {
+            --bg-color: #121212;
+            --primary-color: #BB86FC;
+            --secondary-color: #03DAC6;
+            --text-color: #FFFFFF;
+            --panel-bg: #1E1E1E;
+            --danger-color: #CF6679;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #login-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+            z-index: 100;
+        }
+
+        .login-panel {
+            background-color: var(--panel-bg);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+            pointer-events: auto;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            pointer-events: auto;
+        }
+
+        button:hover {
+            background-color: #9965f4;
+        }
+
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #leaderboard {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 1rem;
+            border-radius: 5px;
+            width: 250px;
+            pointer-events: auto;
+        }
+
+        #leaderboard h2 {
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .leader-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .leader-pfp {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: var(--primary-color);
+            overflow: hidden;
+        }
+
+        .leader-pfp img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .leader-info {
+            flex-grow: 1;
+        }
+
+        .leader-name {
+            font-weight: bold;
+        }
+
+        .leader-score {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .leader-kills {
+            margin-left: 5px;
+            color: var(--danger-color);
+            font-size: 0.9rem;
+        }
+
+        .current-player {
+            background-color: rgba(187, 134, 252, 0.2);
+            border-radius: 4px;
+        }
+
+        .predator-player {
+            background-color: rgba(255, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        #stats {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 0.8rem;
+            border-radius: 5px;
+            pointer-events: auto;
+        }
+
+        #stats p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        #player-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 0.8rem;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        #player-info .player-pfp {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: var(--primary-color);
+            overflow: hidden;
+        }
+
+        #player-info .player-pfp img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #player-info .player-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .highlight {
+            color: var(--secondary-color);
+            font-weight: bold;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 50;
+        }
+
+        #game-over h2 {
+            color: var(--danger-color);
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        #game-over p {
+            margin-bottom: 2rem;
+            font-size: 1.2rem;
+        }
+
+        #game-over .score-panel {
+            background-color: var(--panel-bg);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 2rem;
+            width: 80%;
+            max-width: 500px;
+            pointer-events: auto;
+        }
+
+        #game-over .buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        #game-over .btn-secondary {
+            background-color: var(--panel-bg);
+            color: var(--text-color);
+        }
+
+        #players-count {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            pointer-events: auto;
+        }
+
+        #highscores-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            pointer-events: auto;
+        }
+
+        #boost-indicator {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background-color: rgba(255, 50, 50, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+            pointer-events: auto;
+        }
+
+        #boost-cooldown {
+            position: absolute;
+            top: 130px;
+            right: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: normal;
+            pointer-events: auto;
+        }
+
+        #minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background-color: rgba(30, 30, 30, 0.6);
+            border: 2px solid var(--secondary-color);
+            border-radius: 5px;
+            overflow: hidden;
+            pointer-events: auto;
+        }
+
+        #minimap-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 230px;
+            right: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: auto;
+        }
+
+        /* Kill feed styles */
+        #kill-feed {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            width: 300px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        .kill-feed-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .kill-entry {
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        
+        .kill-entry.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .kill-entry.fading {
+            opacity: 0;
+            transform: translateX(-50px);
+        }
+        
+        .kill-entry img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .kill-entry .name {
+            margin: 0 5px;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90px;
+        }
+        
+        .kill-entry .killer-name {
+            color: #BB86FC;
+        }
+        
+        .kill-entry .victim-name {
+            color: #CF6679;
+        }
+        
+        .kill-entry .kill-icon {
+            margin: 0 5px;
+            color: #FFFFFF;
+        }
+        
+        .kill-entry .points-gained {
+            margin-left: auto;
+            color: #03DAC6;
+            font-weight: bold;
+        }
+
+        /* Chat styles */
+        #chat-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            max-width: 90%;
+            pointer-events: auto;
+            z-index: 30;
+        }
+        
+        #chat-messages {
+            background-color: rgba(30, 30, 30, 0.8);
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            display: none;
+        }
+        
+        .chat-message {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+        
+        .chat-message-sender {
+            font-weight: bold;
+            color: #BB86FC;
+        }
+        
+        #chat-input-container {
+            display: none;
+            flex-direction: row;
+            gap: 5px;
+        }
+        
+        #chat-input {
+            flex-grow: 1;
+            background-color: rgba(30, 30, 30, 0.8);
+            border: 1px solid #BB86FC;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        #chat-send {
+            background-color: #BB86FC;
+            color: black;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        #chat-toggle {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #BB86FC;
+            color: black;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            #leaderboard {
+                width: 150px;
+                font-size: 0.8rem;
+            }
+
+            .leader-pfp {
+                width: 24px;
+                height: 24px;
+            }
+            
+            #player-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            #player-info .player-pfp {
+                margin-bottom: 5px;
+            }
+
+            #minimap {
+                width: 150px;
+                height: 150px;
+            }
+            
+            #kill-feed {
+                width: 250px;
+            }
+            
+            .kill-entry .name {
+                max-width: 70px;
+                font-size: 12px;
+            }
+            
+            .kill-entry img {
+                width: 20px;
+                height: 20px;
+            }
+        }
     </style>
-  </head>
-  <body>
-    <div class="container mt-4">
-      <div
-        class="header d-flex justify-content-between align-items-center mb-4"
-      >
-        <button class="btn btn-dark" id="back-button">Back to Game</button>
-        <h1>High Scores</h1>
-      </div>
-      
-      <div class="stats-container">
-          <div class="stat-card">
-              <div class="stat-label">Total Players</div>
-              <div class="stat-value" id="total-players">--</div>
-          </div>
-          <div class="stat-card">
-              <div class="stat-label">Top Score</div>
-              <div class="stat-value" id="top-score">--</div>
-          </div>
-          <div class="stat-card">
-              <div class="stat-label">Avg Score</div>
-              <div class="stat-value" id="avg-score">--</div>
-          </div>
-      </div>
-      
-      <div class="filter-buttons">
-          <button class="filter-btn active" data-filter="all">All Time</button>
-          <button class="filter-btn" data-filter="day">Today</button>
-          <button class="filter-btn" data-filter="week">This Week</button>
-          <button class="filter-btn" data-filter="month">This Month</button>
-      </div>
-      
-      <div id="loading" class="text-center">Loading high scores...</div>
-      <div id="highscore-list" class="mt-4">
-        <ul class="list-unstyled">
-          <!-- High scores will be inserted here by JavaScript -->
-        </ul>
-      </div>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <div id="ui-container">
+        <div id="login-screen">
+            <div class="login-panel">
+                <h1>Snakes on a Relay</h1>
+                <p>A multiplayer snake game powered by Nostr!</p>
+                <button id="connect-nostr">Connect with NIP-07</button>
+                <div class="loader" id="login-loader"></div>
+                <p id="login-status"></p>
+            </div>
+        </div>
+
+        <div id="player-info" style="display: none;">
+            <div class="player-pfp" id="player-pfp-container">
+                <!-- Profile picture will be inserted here -->
+            </div>
+            <div class="player-name" id="player-name">Player</div>
+        </div>
+
+        <div id="leaderboard" style="display: none;">
+            <h2>Active Players</h2>
+            <div id="leaders-list"></div>
+        </div>
+
+        <div id="players-count" style="display: none;">
+            <span id="online-count">0</span> players online
+        </div>
+
+        <div id="stats" style="display: none;">
+            <p>Length: <span id="player-length" class="highlight">0</span></p>
+            <p>Score: <span id="player-score" class="highlight">0</span></p>
+            <p>Kills: <span id="player-kills" class="highlight">0</span></p>
+        </div>
+
+        <div id="boost-indicator"></div>
+        <div id="boost-cooldown" style="display: none;">Click to Boost: Ready</div>
+
+        <div class="controls-hint" style="display: none;">
+            <p><strong>Controls:</strong></p>
+            <p>Mouse: Steer snake</p>
+            <p>Click: Boost speed (costs length)</p>
+            <p>Enter: Open chat</p>
+        </div>
+
+        <div id="minimap" style="display: none;">
+            <canvas id="minimap-canvas" willReadFrequently="true"></canvas>
+        </div>
+
+        <div id="kill-feed">
+            <div class="kill-feed-container">
+                <!-- Kill entries will be added here -->
+            </div>
+        </div>
+
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <div id="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Type your message...">
+                <button id="chat-send">Send</button>
+            </div>
+            <button id="chat-toggle">💬</button>
+        </div>
+
+        <button id="highscores-button" class="btn btn-dark" style="display: none;">View High Scores</button>
+
+        <div id="game-over">
+            <div class="score-panel">
+                <h2>Game Over!</h2>
+                <p>Your final score: <span id="final-score">0</span></p>
+                <p>Kills: <span id="final-kills">0</span></p>
+                <p>Submit your score to the global leaderboard?</p>
+                <div class="buttons">
+                    <button id="submit-score" class="btn btn-primary">Submit Score</button>
+                    <button id="play-again" class="btn btn-secondary">Play Again</button>
+                </div>
+            </div>
+        </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-      // Configuration
-      const GAME_RELAYS = [
-        'wss://relay.nostrfreaks.com',
-        'wss://relay.damus.io'
-      ];
-      const METADATA_RELAYS = [
-        'wss://relay.nostrfreaks.com',
-        'wss://relay.damus.io',
-        'wss://purplepag.es'
-      ];
-      const HIGHSCORE_KIND = 1000002; // Match the kind from the game
-      
-      // Global state
-      let nostrRelays = {};
-      let highscores = [];
-      let filteredHighscores = [];
-      let profileMetadata = {};
-      let currentFilter = 'all';
-      
-      // Initialize on page load
-      document.addEventListener('DOMContentLoaded', function() {
-        // Set up event listeners
-        document.getElementById('back-button').addEventListener('click', function() {
-          window.location.href = 'index.html';
-        });
-        
-        // Set up filter buttons
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-          btn.addEventListener('click', function() {
-            const filter = this.getAttribute('data-filter');
-            setActiveFilter(filter);
-          });
-        });
-        
-        // Connect to relays and fetch highscores
-        connectToRelays();
-      });
-      
-      // Set active filter
-      function setActiveFilter(filter) {
-        currentFilter = filter;
-        
-        // Update active button
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-          if (btn.getAttribute('data-filter') === filter) {
-            btn.classList.add('active');
-          } else {
-            btn.classList.remove('active');
-          }
-        });
-        
-        // Apply filter
-        applyFilter();
-      }
-      
-      // Apply current filter to highscores
-      function applyFilter() {
-        const now = Date.now();
-        const day = 24 * 60 * 60 * 1000;
-        
-        switch (currentFilter) {
-          case 'day':
-            filteredHighscores = highscores.filter(score => now - score.timestamp < day);
-            break;
-          case 'week':
-            filteredHighscores = highscores.filter(score => now - score.timestamp < 7 * day);
-            break;
-          case 'month':
-            filteredHighscores = highscores.filter(score => now - score.timestamp < 30 * day);
-            break;
-          default:
-            filteredHighscores = [...highscores];
-        }
-        
-        // Sort by score
-        filteredHighscores.sort((a, b) => b.score - a.score);
-        
-        // Update display
-        updateHighscoresDisplay();
-        updateStats();
-      }
-      
-      // Connect to Nostr relays
-      async function connectToRelays() {
-        let connectedCount = 0;
-        
-        // Connect to each game relay
-        GAME_RELAYS.forEach(relayUrl => {
-          try {
-            console.log(`Connecting to relay: ${relayUrl}`);
-            const relay = new WebSocket(relayUrl);
-            nostrRelays[relayUrl] = relay;
+        // Configuration
+        const CONFIG = {
+            // Relay settings
+            RELAYS: {
+                GAME: [
+                    'wss://relay.nostrfreaks.com',
+                    'wss://relay.damus.io'
+                ],
+                METADATA: [
+                    'wss://relay.nostrfreaks.com',
+                    'wss://relay.damus.io',
+                    'wss://purplepag.es'
+                ],
+                PRIMARY: 'wss://relay.nostrfreaks.com'
+            },
             
-            relay.onopen = () => {
-              console.log(`Connected to relay: ${relayUrl}`);
-              connectedCount++;
-              fetchHighscores(relay);
-            };
+            // Game parameters
+            GAME: {
+                UPDATE_RATE: 14.5, // ~69 updates per second (1000ms/69)
+                GRID_SIZE: 20,
+                WORLD_SIZE: 5000,
+                INITIAL_SNAKE_LENGTH: 5,
+                FOOD_SPAWN_RATE: 0.01, // Probability of spawning food per frame
+                BOOST_DURATION: 2000, // 2 seconds boost duration
+                BOOST_COOLDOWN: 3000, // 3 seconds cooldown
+                BOOST_COST: 3, // Length points
+                NORMAL_SPEED: 300, // Phaser uses pixels per second
+                BOOST_SPEED: 600,
+                PREDATOR_THRESHOLD: 3 // Kills needed to become a predator
+            },
             
-            relay.onerror = (error) => {
-              console.error(`Relay connection error for ${relayUrl}:`, error);
-              if (connectedCount === 0) {
-                displayError(`Failed to connect to relay: ${relayUrl}`);
-              }
-            };
-            
-            relay.onclose = () => {
-              console.log(`Relay connection closed: ${relayUrl}`);
-              delete nostrRelays[relayUrl];
-            };
-            
-            relay.onmessage = handleRelayMessage;
-          } catch (error) {
-            console.error(`Error setting up connection to ${relayUrl}:`, error);
-            if (connectedCount === 0) {
-              displayError(`Failed to connect to relay: ${relayUrl}`);
+            // Nostr event kinds
+            EVENT_KINDS: {
+                HEARTBEAT: 1000001,
+                HIGHSCORE: 1000002,
+                MOVEMENT: 1000003,
+                FOOD_SPAWN: 1000004,
+                FOOD_EATEN: 1000005,
+                PLAYER_JOIN: 1000006,
+                KILL: 1000007,
+                BOOST: 1000008,
+                DEATH: 1000009,
+                CHAT: 1000010
             }
-          }
-        });
-        
-        // Set a timeout in case all connections fail
-        setTimeout(() => {
-          if (connectedCount === 0) {
-            displayError("Failed to connect to any relays");
-          }
-        }, 5000);
-      }
-      
-      // Fetch highscores from relay
-      function fetchHighscores(relay) {
-        // Request highscores with unique subscription ID
-        const highscoreRequest = JSON.stringify([
-          "REQ",
-          "highscores_" + Math.random().toString(36).substring(2, 10),
-          {
-            "kinds": [HIGHSCORE_KIND],
-            "limit": 500
-          }
-        ]);
-        
-        relay.send(highscoreRequest);
-      }
-      
-      // Handle messages from the relay
-      function handleRelayMessage(event) {
-        try {
-          const message = JSON.parse(event.data);
-          
-          if (message[0] === "EVENT") {
-            const eventData = message[2];
-            
-            // Handle different event types
-            if (eventData.kind === HIGHSCORE_KIND) {
-              handleHighscoreEvent(eventData);
-            } else if (eventData.kind === 0) {
-              // Metadata event
-              handleMetadataEvent(eventData);
-            }
-          } else if (message[0] === "EOSE") {
-            // End of stored events
-            if (message[1].startsWith("highscores_")) {
-              if (highscores.length === 0) {
-                displayNoHighscores();
-              } else {
-                // We need profile metadata for the highscore authors
-                applyFilter();
-                fetchProfilesMetadata();
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error handling relay message:', error);
-        }
-      }
-      
-      // Handle highscore event
-      function handleHighscoreEvent(event) {
-        try {
-          const content = JSON.parse(event.content);
-          const pubkey = event.pubkey;
-          const createdAt = event.created_at;
-          
-          // Skip duplicates
-          if (highscores.some(h => h.pubkey === pubkey && h.timestamp === (content.timestamp || createdAt * 1000))) {
-            return;
-          }
-          
-          // Add to highscores
-          highscores.push({
-            pubkey: pubkey,
-            score: content.score,
-            length: content.length || 0,
-            timestamp: content.timestamp || (createdAt * 1000),
-            createdAt: createdAt
-          });
-          
-          // Apply filter
-          applyFilter();
-        } catch (error) {
-          console.error('Error handling highscore event:', error);
-        }
-      }
-      
-      // Handle metadata event
-      function handleMetadataEvent(event) {
-        try {
-          const content = JSON.parse(event.content);
-          const pubkey = event.pubkey;
-          
-          // Store metadata
-          profileMetadata[pubkey] = {
-            name: content.name || content.display_name || 'Anonymous',
-            picture: content.picture || null
-          };
-          
-          // Update display
-          updateHighscoresDisplay();
-        } catch (error) {
-          console.error('Error handling metadata event:', error);
-        }
-      }
-      
-      // Fetch profile metadata for highscore authors
-      function fetchProfilesMetadata() {
-        // Get unique pubkeys from highscores
-        const pubkeys = [...new Set(highscores.map(h => h.pubkey))];
-        
-        if (pubkeys.length === 0) {
-          // No highscores to display
-          displayNoHighscores();
-          return;
-        }
-        
-        // Try to fetch metadata from multiple relays
-        let metadataFound = {};
-        let relayConnections = [];
-        
-        console.log(`Fetching metadata for ${pubkeys.length} profiles...`);
-        
-        // Request metadata for all pubkeys from multiple relays
-        METADATA_RELAYS.forEach(relayUrl => {
-          try {
-            // Check if we already have a connection to this relay
-            if (nostrRelays[relayUrl] && nostrRelays[relayUrl].readyState === WebSocket.OPEN) {
-              // Use existing connection
-              const metadataRequest = JSON.stringify([
-                "REQ",
-                `profiles_${Math.random().toString(36).substring(2, 10)}`,
-                {
-                  "kinds": [0],
-                  "authors": pubkeys,
-                  "limit": 500
-                }
-              ]);
-              
-              nostrRelays[relayUrl].send(metadataRequest);
-            } else {
-              // Create new connection
-              const relay = new WebSocket(relayUrl);
-              relayConnections.push(relay);
-              
-              relay.onopen = () => {
-                console.log(`Connected to ${relayUrl} for metadata...`);
-                
-                const metadataRequest = JSON.stringify([
-                  "REQ",
-                  `profiles_${Math.random().toString(36).substring(2, 10)}`,
-                  {
-                    "kinds": [0],
-                    "authors": pubkeys,
-                    "limit": 500
-                  }
-                ]);
-                
-                relay.send(metadataRequest);
-              };
-              
-              relay.onmessage = (event) => {
+        };
+
+        // Game state
+        let nostrRelays = {}; // Object to store multiple relay connections
+        let playerPublicKey = null;
+        let playerMetadata = {};
+        let leaderboard = [];
+        let scoreSubmitted = false;
+        let lastUpdateTime = 0;
+        let lastStatePublishTime = 0;
+        let profileCache = {
+            loadFromCache: function() {
                 try {
-                  const message = JSON.parse(event.data);
-                  
-                  if (message[0] === "EVENT" && message[2].kind === 0) {
-                    const pubkey = message[2].pubkey;
-                    const content = JSON.parse(message[2].content);
-                    
-                    // Only store if we don't already have metadata for this pubkey
-                    if (!metadataFound[pubkey]) {
-                      console.log(`Got metadata for ${pubkey} from relay ${relayUrl}`);
-                      metadataFound[pubkey] = true;
-                      
-                      profileMetadata[pubkey] = {
-                        name: content.name || content.display_name || 'Anonymous',
-                        picture: content.picture || null
-                      };
-                      
-                      // Update the display periodically
-                      if (Object.keys(metadataFound).length % 5 === 0) {
-                        updateHighscoresDisplay();
-                      }
+                    const cached = localStorage.getItem('nostr_snake_profiles');
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        // Only use cache if it's less than 24 hours old
+                        if (parsed.timestamp && (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000)) {
+                            return parsed.profiles || {};
+                        }
                     }
-                  }
                 } catch (e) {
-                  console.error(`Error handling message from ${relayUrl}:`, e);
+                    console.error('Error loading profile cache', e);
                 }
-              };
-              
-              // Close after 5 seconds
-              setTimeout(() => {
-                try { relay.close(); } catch (e) {}
-              }, 5000);
+                return {};
+            },
+            
+            saveToCache: function(profiles) {
+                try {
+                    localStorage.setItem('nostr_snake_profiles', JSON.stringify({
+                        profiles: profiles,
+                        timestamp: Date.now()
+                    }));
+                } catch (e) {
+                    console.error('Error saving profile cache', e);
+                }
             }
-          } catch (e) {
-            console.error(`Error connecting to ${relayUrl}:`, e);
-          }
-        });
-        
-        // Update display with what we have now
-        updateHighscoresDisplay();
-        
-        // Set a timeout to update again after all fetches complete
-        setTimeout(() => {
-          updateHighscoresDisplay();
-          updateStats();
-          
-          // Close all temporary relay connections
-          relayConnections.forEach(relay => {
-            try { relay.close(); } catch (e) {}
-          });
-        }, 5000);
-      }
-      
-      // Update highscores display
-      function updateHighscoresDisplay() {
-        const loadingElement = document.getElementById('loading');
-        const highscoreList = document.getElementById('highscore-list');
-        
-        if (filteredHighscores.length === 0) {
-          displayNoHighscores();
-          return;
+        };
+
+        // Load cached profiles at startup
+        playerMetadata = {...profileCache.loadFromCache()};
+
+        // Cache profiles periodically
+        setInterval(() => {
+            profileCache.saveToCache(playerMetadata);
+        }, 60000); // Save every minute
+
+        // Phaser game instance
+        let game;
+        let gameScene;
+
+        // Initialize on page load
+        window.onload = function() {
+            setupUI();
+        };
+
+        // Set up UI elements
+        function setupUI() {
+            const connectButton = document.getElementById('connect-nostr');
+            const playAgainButton = document.getElementById('play-again');
+            const submitScoreButton = document.getElementById('submit-score');
+            
+            connectButton.addEventListener('click', connectWithNostr);
+            playAgainButton.addEventListener('click', restartGame);
+            submitScoreButton.addEventListener('click', submitHighscore);
+            
+            // Set up chat functionality
+            setupChat();
+            
+            // Set highscores button action
+            document.getElementById('highscores-button').addEventListener('click', function() {
+                // Since we don't have highscores.html yet, just show an alert for now
+                alert('Highscores page will be available soon!');
+            });
+        }
+
+        // Set up chat functionality
+        function setupChat() {
+            const chatToggle = document.getElementById('chat-toggle');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatInputContainer = document.getElementById('chat-input-container');
+            const chatInput = document.getElementById('chat-input');
+            const chatSend = document.getElementById('chat-send');
+            
+            let chatOpen = false;
+            
+            chatToggle.addEventListener('click', () => {
+                chatOpen = !chatOpen;
+                
+                if (chatOpen) {
+                    chatMessages.style.display = 'block';
+                    chatInputContainer.style.display = 'flex';
+                    chatInput.focus();
+                } else {
+                    chatMessages.style.display = 'none';
+                    chatInputContainer.style.display = 'none';
+                }
+            });
+            
+            // Send chat on button click
+            chatSend.addEventListener('click', sendChat);
+            
+            // Send chat on Enter key
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    sendChat();
+                }
+            });
+            
+            // Global key event for chat
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !chatOpen) {
+                    chatOpen = true;
+                    chatMessages.style.display = 'block';
+                    chatInputContainer.style.display = 'flex';
+                    chatInput.focus();
+                    e.preventDefault();
+                } else if (e.key === 'Escape' && chatOpen) {
+                    chatOpen = false;
+                    chatMessages.style.display = 'none';
+                    chatInputContainer.style.display = 'none';
+                }
+            });
+        }
+
+        // Send chat message
+        function sendChat() {
+            const chatInput = document.getElementById('chat-input');
+            const message = chatInput.value.trim();
+            
+            if (message) {
+                // Clear input
+                chatInput.value = '';
+                
+                // Add to local chat
+                addChatMessage(playerPublicKey, message);
+                
+                // Publish chat event
+                publishGameEvent({
+                    type: 'chat',
+                    message: message
+                });
+            }
+        }
+
+        // Add a chat message
+        function addChatMessage(pubkey, message) {
+            const chatMessages = document.getElementById('chat-messages');
+            const metadata = playerMetadata[pubkey] || { name: 'Anonymous' };
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            
+            const senderElement = document.createElement('span');
+            senderElement.className = 'chat-message-sender';
+            senderElement.textContent = metadata.name + ': ';
+            
+            const textElement = document.createElement('span');
+            textElement.className = 'chat-message-text';
+            textElement.textContent = message;
+            
+            messageElement.appendChild(senderElement);
+            messageElement.appendChild(textElement);
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // If chat is closed, flash the toggle button
+            const chatToggle = document.getElementById('chat-toggle');
+            if (chatMessages.style.display === 'none') {
+                chatToggle.style.backgroundColor = '#03DAC6';
+                setTimeout(() => {
+                    chatToggle.style.backgroundColor = '#BB86FC';
+                }, 1000);
+            }
+        }
+
+        // Connect with Nostr (NIP-07)
+        async function connectWithNostr() {
+            const loginLoader = document.getElementById('login-loader');
+            const loginStatus = document.getElementById('login-status');
+            
+            loginLoader.style.display = 'block';
+            loginStatus.textContent = 'Connecting to Nostr...';
+            
+            try {
+                // Check if NIP-07 extension is available
+                if (typeof window.nostr === 'undefined') {
+                    throw new Error('Nostr extension not found. Please install a NIP-07 compatible extension like nos2x or Alby.');
+                }
+                
+                // Get public key from NIP-07 extension
+                playerPublicKey = await window.nostr.getPublicKey();
+                console.log('Connected with pubkey:', playerPublicKey);
+                
+                // Connect to relay
+                await connectToRelay();
+                
+                // Fetch player metadata
+                await fetchPlayerMetadata();
+                
+                // Update player info display
+                updatePlayerInfoDisplay();
+                
+                // Start the game
+                startGame();
+                
+                // Hide login screen
+                document.getElementById('login-screen').style.display = 'none';
+                
+                // Show UI elements
+                document.getElementById('player-info').style.display = 'flex';
+                document.getElementById('leaderboard').style.display = 'block';
+                document.getElementById('players-count').style.display = 'block';
+                document.getElementById('stats').style.display = 'block';
+                document.getElementById('minimap').style.display = 'block';
+                document.getElementById('highscores-button').style.display = 'block';
+                document.getElementById('boost-cooldown').style.display = 'block';
+                document.querySelector('.controls-hint').style.display = 'block';
+            } catch (error) {
+                console.error('Nostr connection error:', error);
+                loginStatus.textContent = error.message || 'Failed to connect to Nostr';
+                loginLoader.style.display = 'none';
+            }
+        }
+
+        // Connect to Nostr relay
+        async function connectToRelay() {
+            return new Promise((resolve, reject) => {
+                let connectedCount = 0;
+                const requiredConnections = 1; // We need at least the primary relay
+                
+                // Connect to each game relay
+                CONFIG.RELAYS.GAME.forEach(relayUrl => {
+                    try {
+                        console.log(`Connecting to game relay: ${relayUrl}`);
+                        const relay = new WebSocket(relayUrl);
+                        nostrRelays[relayUrl] = relay;
+                        
+                        relay.onopen = () => {
+                            console.log(`Connected to game relay: ${relayUrl}`);
+                            connectedCount++;
+                            
+                            // Subscribe to events on this relay
+                            subscribeToGameEvents(relay);
+                            
+                            // If we've connected to enough relays, resolve
+                            if (connectedCount >= requiredConnections && relayUrl === CONFIG.RELAYS.PRIMARY) {
+                                resolve();
+                            }
+                        };
+                        
+                        relay.onerror = (error) => {
+                            console.error(`Game relay connection error for ${relayUrl}:`, error);
+                            // Only reject if it's the primary relay
+                            if (relayUrl === CONFIG.RELAYS.PRIMARY) {
+                                reject(new Error(`Failed to connect to primary Nostr relay: ${relayUrl}`));
+                            }
+                        };
+                        
+                        relay.onclose = () => {
+                            console.log(`Game relay connection closed: ${relayUrl}`);
+                            delete nostrRelays[relayUrl];
+                            
+                            // Try to reconnect after a delay
+                            setTimeout(() => {
+                                if (gameScene && !gameScene.gameOver) {
+                                    try {
+                                        console.log(`Trying to reconnect to ${relayUrl}`);
+                                        const newRelay = new WebSocket(relayUrl);
+                                        nostrRelays[relayUrl] = newRelay;
+                                        
+                                        newRelay.onopen = () => {
+                                            console.log(`Reconnected to ${relayUrl}`);
+                                            subscribeToGameEvents(newRelay);
+                                        };
+                                        
+                                        newRelay.onmessage = handleRelayMessage;
+                                        newRelay.onerror = () => console.error(`Error reconnecting to ${relayUrl}`);
+                                    } catch (e) {
+                                        console.error(`Failed to reconnect to ${relayUrl}:`, e);
+                                    }
+                                }
+                            }, 5000);
+                        };
+                        
+                        relay.onmessage = handleRelayMessage;
+                    } catch (error) {
+                        console.error(`Error setting up connection to ${relayUrl}:`, error);
+                        if (relayUrl === CONFIG.RELAYS.PRIMARY) {
+                            reject(error);
+                        }
+                    }
+                });
+                
+                // Set a timeout in case connections take too long
+                setTimeout(() => {
+                    if (connectedCount === 0) {
+                        reject(new Error("Failed to connect to any relays within timeout period"));
+                    } else if (connectedCount < CONFIG.RELAYS.GAME.length) {
+                        console.warn(`Only connected to ${connectedCount}/${CONFIG.RELAYS.GAME.length} relays, but proceeding`);
+                        resolve();
+                    }
+                }, 5000);
+            });
+        }
+
+        // Subscribe to game events on the relay
+        function subscribeToGameEvents(relay) {
+            // Subscribe to all game event kinds
+            const eventKinds = Object.values(CONFIG.EVENT_KINDS);
+            
+            const gameSubscription = JSON.stringify([
+                "REQ",
+                "game_events_" + Math.random().toString(36).substring(2, 10),
+                {
+                    "kinds": eventKinds,
+                    "limit": 100
+                }
+            ]);
+            
+            relay.send(gameSubscription);
+            
+            // Subscribe to metadata for all profiles
+            const metadataSubscription = JSON.stringify([
+                "REQ",
+                "metadata_" + Math.random().toString(36).substring(2, 10),
+                {
+                    "kinds": [0],
+                    "limit": 100
+                }
+            ]);
+            
+            relay.send(metadataSubscription);
+            
+            // Subscribe to highscores
+            const highscoreSubscription = JSON.stringify([
+                "REQ",
+                "highscores_" + Math.random().toString(36).substring(2, 10),
+                {
+                    "kinds": [CONFIG.EVENT_KINDS.HIGHSCORE],
+                    "limit": 50
+                }
+            ]);
+            
+            relay.send(highscoreSubscription);
+        }
+
+        // Handle messages from the relay
+        function handleRelayMessage(event) {
+            try {
+                const message = JSON.parse(event.data);
+                
+                if (message[0] === "EVENT") {
+                    const eventData = message[2];
+                    
+                    // Handle different event types
+                    if (Object.values(CONFIG.EVENT_KINDS).includes(eventData.kind)) {
+                        handleGameEvent(eventData);
+                    } else if (eventData.kind === 0) {
+                        // Metadata event
+                        handleMetadataEvent(eventData);
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling relay message:', error);
+            }
+        }
+
+        // Handle game event messages
+        function handleGameEvent(event) {
+            if (!gameScene) return;
+            
+            try {
+                const content = JSON.parse(event.content);
+                const pubkey = event.pubkey;
+                
+                // Skip our own events
+                if (pubkey === playerPublicKey) {
+                    return;
+                }
+                
+                // Handle event based on type
+                switch (content.type) {
+                    case 'position':
+                        // Update other snake position
+                        gameScene.updateOtherSnake(pubkey, content);
+                        break;
+                        
+                    case 'food_eaten':
+                        // Remove food
+                        gameScene.removeFood(content.foodId);
+                        break;
+                        
+                    case 'death':
+                        // Remove other snake
+                        gameScene.removeOtherSnake(pubkey);
+                        break;
+                        
+                    case 'join':
+                        // A new player joined
+                        gameScene.addOtherSnake(pubkey, content.position);
+                        break;
+                        
+                    case 'kill':
+                        // Someone killed another snake
+                        handleKillEvent(pubkey, content);
+                        break;
+                        
+                    case 'chat':
+                        // Handle chat message
+                        addChatMessage(pubkey, content.message);
+                        break;
+                        
+                    case 'boost':
+                        // Handle boost event
+                        if (gameScene.otherSnakes[pubkey]) {
+                            gameScene.otherSnakes[pubkey].boosted = true;
+                            gameScene.activateBoostEffectForOtherSnake(pubkey);
+                        }
+                        break;
+                }
+                
+                // Update players count
+                document.getElementById('online-count').textContent = Object.keys(gameScene.otherSnakes).length + 1;
+            } catch (error) {
+                console.error('Error handling game event:', error);
+            }
+        }
+
+        // Handle kill event
+        function handleKillEvent(killerPubkey, content) {
+            const victimPubkey = content.eatenPubkey;
+            
+            if (victimPubkey === playerPublicKey && !gameScene.gameOver) {
+                // We were eaten!
+                gameScene.playerDeath(true, killerPubkey);
+            } else {
+                // Remove the eaten snake
+                gameScene.removeOtherSnake(victimPubkey);
+                
+                // Update the killer's score and kill count
+                gameScene.updateEnemyScore(killerPubkey, content.scoreGain);
+                
+                // Add to kill feed
+                addKillToFeed(killerPubkey, victimPubkey, content.scoreGain);
+                
+                // Update the killer's metrics if available
+                if (content.killer && gameScene.otherSnakes[killerPubkey]) {
+                    gameScene.otherSnakes[killerPubkey].kills = content.killer.kills || 0;
+                    gameScene.otherSnakes[killerPubkey].isPredator = content.killer.isPredator || false;
+                    
+                    // Update visuals
+                    gameScene.updateOtherSnakePredatorStatus(killerPubkey);
+                }
+            }
+        }
+
+        // Add a kill to the kill feed
+        function addKillToFeed(killerPubkey, victimPubkey, pointsGained) {
+            const killFeedContainer = document.querySelector('.kill-feed-container');
+            if (!killFeedContainer) return;
+            
+            // Get metadata for both players
+            const killerMeta = playerMetadata[killerPubkey] || { name: 'Unknown', picture: null };
+            const victimMeta = playerMetadata[victimPubkey] || { name: 'Unknown', picture: null };
+            
+            // Create kill entry element
+            const killEntry = document.createElement('div');
+            killEntry.className = 'kill-entry';
+            
+            // Create killer profile picture
+            const killerPic = document.createElement('img');
+            killerPic.src = killerMeta.picture || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23BB86FC"/><text x="12" y="16" font-size="12" text-anchor="middle" fill="black">' + (killerMeta.name.charAt(0).toUpperCase()) + '</text></svg>';
+            killerPic.alt = killerMeta.name;
+            
+            // Create killer name
+            const killerName = document.createElement('span');
+            killerName.className = 'name killer-name';
+            killerName.textContent = killerMeta.name;
+            
+            // Create kill icon
+            const killIcon = document.createElement('span');
+            killIcon.className = 'kill-icon';
+            killIcon.textContent = '🐍';
+            
+            // Create victim name
+            const victimName = document.createElement('span');
+            victimName.className = 'name victim-name';
+            victimName.textContent = victimMeta.name;
+            
+            // Create victim profile picture
+            const victimPic = document.createElement('img');
+            victimPic.src = victimMeta.picture || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%23BB86FC"/><text x="12" y="16" font-size="12" text-anchor="middle" fill="black">' + (victimMeta.name.charAt(0).toUpperCase()) + '</text></svg>';
+            victimPic.alt = victimMeta.name;
+            
+            // Create points gained
+            const points = document.createElement('span');
+            points.className = 'points-gained';
+            points.textContent = '+' + pointsGained;
+            
+            // Add all elements to kill entry
+            killEntry.appendChild(killerPic);
+            killEntry.appendChild(killerName);
+            killEntry.appendChild(killIcon);
+            killEntry.appendChild(victimName);
+            killEntry.appendChild(victimPic);
+            killEntry.appendChild(points);
+            
+            // Add to kill feed
+            killFeedContainer.prepend(killEntry);
+            
+            // Animate entry
+            setTimeout(() => {
+                killEntry.classList.add('visible');
+            }, 50);
+            
+            // Remove entry after 5 seconds
+            setTimeout(() => {
+                killEntry.classList.add('fading');
+                killEntry.classList.remove('visible');
+                
+                setTimeout(() => {
+                    if (killEntry.parentNode === killFeedContainer) {
+                        killFeedContainer.removeChild(killEntry);
+                    }
+                }, 500);
+            }, 5000);
+            
+            // Limit to 5 entries
+            const entries = killFeedContainer.querySelectorAll('.kill-entry');
+            if (entries.length > 5) {
+                for (let i = 5; i < entries.length; i++) {
+                    if (entries[i].parentNode === killFeedContainer) {
+                        killFeedContainer.removeChild(entries[i]);
+                    }
+                }
+            }
+        }
+
+        // Handle metadata event messages
+        function handleMetadataEvent(event) {
+            try {
+                const content = JSON.parse(event.content);
+                const pubkey = event.pubkey;
+                
+                // Store metadata
+                playerMetadata[pubkey] = {
+                    name: content.name || content.display_name || 'Anonymous',
+                    picture: content.picture || null
+                };
+                
+                // Update our player display if this is our metadata
+                if (pubkey === playerPublicKey) {
+                    updatePlayerInfoDisplay();
+                }
+                
+                // Update display of other snakes
+                if (gameScene && gameScene.otherSnakes && gameScene.otherSnakes[pubkey]) {
+                    gameScene.updateSnakeMetadata(pubkey, playerMetadata[pubkey]);
+                }
+                
+                // Update leaderboard display
+                updateLeaderboardDisplay();
+                
+                // Save updated profiles to cache
+                profileCache.saveToCache(playerMetadata);
+            } catch (error) {
+                console.error('Error handling metadata event:', error);
+            }
+        }
+
+        // Update player info display
+        function updatePlayerInfoDisplay() {
+            if (!playerPublicKey || !playerMetadata[playerPublicKey]) return;
+            
+            const metadata = playerMetadata[playerPublicKey];
+            const nameElement = document.getElementById('player-name');
+            const pfpContainer = document.getElementById('player-pfp-container');
+            
+            // Update name
+            nameElement.textContent = metadata.name;
+            
+            // Update profile picture
+            if (metadata.picture) {
+                pfpContainer.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = metadata.picture;
+                img.alt = metadata.name;
+                pfpContainer.appendChild(img);
+            }
+        }
+
+        // Fetch player metadata
+        async function fetchPlayerMetadata() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Check the cache first
+                    if (playerMetadata[playerPublicKey]) {
+                        console.log('Using cached player metadata');
+                        updatePlayerInfoDisplay();
+                        resolve();
+                        return;
+                    }
+                    
+                    // Try to get metadata directly from the NIP-07 extension first
+                    if (window.nostr && window.nostr.getMetadata) {
+                        window.nostr.getMetadata()
+                            .then(metadata => {
+                                console.log('Got metadata from NIP-07:', metadata);
+                                playerMetadata[playerPublicKey] = {
+                                    name: metadata.name || metadata.display_name || 'Anonymous',
+                                    picture: metadata.picture || null
+                                };
+                                updatePlayerInfoDisplay();
+                                resolve();
+                            })
+                            .catch(error => {
+                                console.error('Error getting metadata from NIP-07:', error);
+                                // Fallback to querying relays
+                                queryMultipleRelaysForMetadata();
+                            });
+                    } else {
+                        // Fallback to querying relays
+                        queryMultipleRelaysForMetadata();
+                    }
+                } catch (error) {
+                    console.error('Error fetching player metadata:', error);
+                    // Set default metadata
+                    playerMetadata[playerPublicKey] = {
+                        name: 'Anonymous',
+                        picture: null
+                    };
+                    resolve();
+                }
+                
+                function queryMultipleRelaysForMetadata() {
+                    console.log('Querying multiple relays for metadata...');
+                    let metadataFound = false;
+                    let relayConnections = [];
+                    
+                    // Try to get metadata from multiple relays
+                    CONFIG.RELAYS.METADATA.forEach(relayUrl => {
+                        try {
+                            const relay = new WebSocket(relayUrl);
+                            relayConnections.push(relay);
+                            
+                            relay.onopen = () => {
+                                console.log(`Connected to metadata relay: ${relayUrl}`);
+                                
+                                // Request metadata for our pubkey
+                                const metadataRequest = JSON.stringify([
+                                    "REQ",
+                                    `metadata_${relayUrl.replace(/[^a-z0-9]/gi, '')}`,
+                                    {
+                                        "kinds": [0],
+                                        "authors": [playerPublicKey],
+                                        "limit": 1
+                                    }
+                                ]);
+                                
+                                relay.send(metadataRequest);
+                            };
+                            
+                            relay.onmessage = (event) => {
+                                try {
+                                    const message = JSON.parse(event.data);
+                                    
+                                    if (message[0] === "EVENT" && message[2].kind === 0 && message[2].pubkey === playerPublicKey) {
+                                        const content = JSON.parse(message[2].content);
+                                        console.log(`Got metadata from relay ${relayUrl}:`, content);
+                                        
+                                        metadataFound = true;
+                                        playerMetadata[playerPublicKey] = {
+                                            name: content.name || content.display_name || 'Anonymous',
+                                            picture: content.picture || null
+                                        };
+                                        
+                                        updatePlayerInfoDisplay();
+                                        
+                                        // Close all relay connections
+                                        relayConnections.forEach(r => {
+                                            try { r.close(); } catch (e) {}
+                                        });
+                                        
+                                        resolve();
+                                    }
+                                } catch (error) {
+                                    console.error(`Error parsing message from ${relayUrl}:`, error);
+                                }
+                            };
+                            
+                            relay.onerror = (error) => {
+                                console.error(`Error connecting to metadata relay ${relayUrl}:`, error);
+                            };
+                        } catch (error) {
+                            console.error(`Error setting up connection to ${relayUrl}:`, error);
+                        }
+                    });
+                    
+                    // Set a timeout to resolve anyway if we don't get a response
+                    setTimeout(() => {
+                        // Close all relay connections
+                        relayConnections.forEach(relay => {
+                            try { relay.close(); } catch (e) {}
+                        });
+                        
+                        if (!metadataFound) {
+                            console.log('No metadata found after timeout, using default');
+                            playerMetadata[playerPublicKey] = {
+                                name: 'Anonymous',
+                                picture: null
+                            };
+                            updatePlayerInfoDisplay();
+                        }
+                        resolve();
+                    }, 5000);
+                }
+            });
+        }
+
+        // Request metadata for a pubkey
+        function requestMetadata(pubkey) {
+            // Skip if we already have this metadata
+            if (playerMetadata[pubkey]) return;
+            
+            const metadataQuery = JSON.stringify([
+                "REQ",
+                "metadata_" + pubkey.slice(0, 10),
+                {
+                    "kinds": [0],
+                    "authors": [pubkey],
+                    "limit": 1
+                }
+            ]);
+            
+            // Send to primary relay
+            if (nostrRelays[CONFIG.RELAYS.PRIMARY] && nostrRelays[CONFIG.RELAYS.PRIMARY].readyState === WebSocket.OPEN) {
+                nostrRelays[CONFIG.RELAYS.PRIMARY].send(metadataQuery);
+            }
+            
+            // Also try to fetch from metadata-specific relays
+            CONFIG.RELAYS.METADATA.forEach(relayUrl => {
+                if (!nostrRelays[relayUrl]) {
+                    try {
+                        const relay = new WebSocket(relayUrl);
+                        
+                        relay.onopen = () => {
+                            console.log(`Connected to metadata relay: ${relayUrl}`);
+                            relay.send(metadataQuery);
+                        };
+                        
+                        relay.onmessage = handleRelayMessage;
+                        
+                        // Close this connection after a delay
+                        setTimeout(() => {
+                            try { relay.close(); } catch (e) {}
+                        }, 10000);
+                    } catch (e) {
+                        console.error(`Error connecting to metadata relay ${relayUrl}:`, e);
+                    }
+                }
+            });
+        }
+
+        // Update leaderboard
+        function updateLeaderboard(pubkey, score, kills = 0, isPredator = false) {
+            if (!gameScene) return;
+            
+            // Find existing entry
+            const existingIndex = leaderboard.findIndex(entry => entry.pubkey === pubkey);
+            
+            if (existingIndex !== -1) {
+                // Update score and kills
+                leaderboard[existingIndex].score = score;
+                leaderboard[existingIndex].kills = kills;
+                leaderboard[existingIndex].isPredator = isPredator;
+            } else {
+                // Add new entry
+                leaderboard.push({
+                    pubkey: pubkey,
+                    score: score,
+                    kills: kills,
+                    isPredator: isPredator
+                });
+            }
+            
+            // Sort leaderboard by score
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Limit to top 10
+            leaderboard = leaderboard.slice(0, 10);
+            
+            // Update display
+            updateLeaderboardDisplay();
+        }
+
+        // Update leaderboard display
+        function updateLeaderboardDisplay() {
+            const leadersList = document.getElementById('leaders-list');
+            leadersList.innerHTML = '';
+            
+            leaderboard.forEach(entry => {
+                const metadata = playerMetadata[entry.pubkey] || { name: 'Anonymous', picture: null };
+                
+                const leaderItem = document.createElement('div');
+                leaderItem.className = 'leader-item';
+                
+                if (entry.pubkey === playerPublicKey) {
+                    leaderItem.classList.add('current-player');
+                }
+                
+                if (entry.isPredator) {
+                    leaderItem.classList.add('predator-player');
+                }
+                
+                const pfp = document.createElement('div');
+                pfp.className = 'leader-pfp';
+                
+                if (metadata.picture) {
+                    const img = document.createElement('img');
+                    img.src = metadata.picture;
+                    img.alt = metadata.name;
+                    pfp.appendChild(img);
+                }
+                
+                const info = document.createElement('div');
+                info.className = 'leader-info';
+                
+                const name = document.createElement('div');
+                name.className = 'leader-name';
+                name.textContent = metadata.name;
+                
+                const score = document.createElement('div');
+                score.className = 'leader-score';
+                score.textContent = entry.score + ' pts';
+                
+                // Add kill count if available
+                if (entry.kills > 0) {
+                    const kills = document.createElement('span');
+                    kills.className = 'leader-kills';
+                    kills.textContent = ` 💀 ${entry.kills}`;
+                    score.appendChild(kills);
+                }
+                
+                info.appendChild(name);
+                info.appendChild(score);
+                
+                leaderItem.appendChild(pfp);
+                leaderItem.appendChild(info);
+                
+                leadersList.appendChild(leaderItem);
+            });
+        }
+
+        // Publish a game event to the relay
+        async function publishGameEvent(content) {
+            try {
+                // Determine event kind based on content.type
+                let kind = CONFIG.EVENT_KINDS.HEARTBEAT; // Default
+                
+                // Map types to kinds
+                switch (content.type) {
+                    case 'position': kind = CONFIG.EVENT_KINDS.MOVEMENT; break;
+                    case 'food_eaten': kind = CONFIG.EVENT_KINDS.FOOD_EATEN; break;
+                    case 'death': kind = CONFIG.EVENT_KINDS.DEATH; break;
+                    case 'join': kind = CONFIG.EVENT_KINDS.PLAYER_JOIN; break;
+                    case 'kill': kind = CONFIG.EVENT_KINDS.KILL; break;
+                    case 'boost': kind = CONFIG.EVENT_KINDS.BOOST; break;
+                    case 'chat': kind = CONFIG.EVENT_KINDS.CHAT; break;
+                }
+                
+                const event = {
+                    kind: kind,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [],
+                    content: JSON.stringify(content)
+                };
+                
+                // Sign with NIP-07
+                const signedEvent = await window.nostr.signEvent(event);
+                
+                // Publish to all connected relays
+                const message = JSON.stringify(["EVENT", signedEvent]);
+                
+                for (const relayUrl in nostrRelays) {
+                    try {
+                        const relay = nostrRelays[relayUrl];
+                        if (relay.readyState === WebSocket.OPEN) {
+                            relay.send(message);
+                        }
+                    } catch (err) {
+                        console.error(`Error sending to relay ${relayUrl}:`, err);
+                    }
+                }
+            } catch (error) {
+                console.error('Error publishing game event:', error);
+            }
         }
         
-        // Hide loading
-        loadingElement.style.display = 'none';
-        
-        // Create highscore list HTML
-        const listElement = highscoreList.querySelector('ul');
-        listElement.innerHTML = '';
-        
-        // Only display top 100
-        const topScores = filteredHighscores.slice(0, 100);
-        
-        topScores.forEach((highscore, index) => {
-          const metadata = profileMetadata[highscore.pubkey] || {
-            name: 'Anonymous',
-            picture: null
-          };
-          
-          const listItem = document.createElement('li');
-          
-          // Format timestamp
-          const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-          const scoreDate = new Date(highscore.timestamp || highscore.createdAt * 1000).toLocaleDateString(undefined, dateOptions);
-          
-          // Create initial letter for avatar fallback
-          const initialLetter = metadata.name.charAt(0).toUpperCase();
-          
-          // Create highscore item HTML
-          listItem.innerHTML = `
-            <div class="highscore-item">
-              <div class="rank">${index + 1}</div>
-              <div class="profile-pic">
-                ${metadata.picture 
-                  ? `<img src="${metadata.picture}" alt="${metadata.name}" onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:24px;\\'>${initialLetter}</div>'">` 
-                  : `<div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:24px;">${initialLetter}</div>`}
-              </div>
-              <div class="player-info">
-                <div class="player-name">${metadata.name}</div>
-                <div class="timestamp">${scoreDate}</div>
-              </div>
-              <div class="score">${highscore.score} pts</div>
-            </div>
-          `;
-          
-          listElement.appendChild(listItem);
-        });
-        
-        // Update stats
-        updateStats();
-      }
-      
-      // Update stats display
-      function updateStats() {
-        const totalPlayers = document.getElementById('total-players');
-        const topScore = document.getElementById('top-score');
-        const avgScore = document.getElementById('avg-score');
-        
-        // Calculate stats
-        const uniquePlayers = new Set(filteredHighscores.map(h => h.pubkey)).size;
-        const highest = filteredHighscores.length > 0 ? Math.max(...filteredHighscores.map(h => h.score)) : 0;
-        
-        // Calculate average score
-        let average = 0;
-        if (filteredHighscores.length > 0) {
-          const sum = filteredHighscores.reduce((acc, h) => acc + h.score, 0);
-          average = Math.round(sum / filteredHighscores.length);
+        // Publish a highscore to the relay
+        async function publishHighscore(score, length, kills) {
+            try {
+                const event = {
+                    kind: CONFIG.EVENT_KINDS.HIGHSCORE,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [],
+                    content: JSON.stringify({
+                        score: score,
+                        length: length,
+                        kills: kills,
+                        timestamp: Date.now(),
+                        game: 'snakes-on-relay'
+                    })
+                };
+                
+                // Sign with NIP-07
+                const signedEvent = await window.nostr.signEvent(event);
+                
+                // Publish to all connected relays
+                const message = JSON.stringify(["EVENT", signedEvent]);
+                
+                for (const relayUrl in nostrRelays) {
+                    try {
+                        const relay = nostrRelays[relayUrl];
+                        if (relay.readyState === WebSocket.OPEN) {
+                            relay.send(message);
+                        }
+                    } catch (err) {
+                        console.error(`Error sending highscore to relay ${relayUrl}:`, err);
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error publishing highscore:', error);
+                return false;
+            }
         }
-        
-        // Update display
-        totalPlayers.textContent = uniquePlayers;
-        topScore.textContent = highest;
-        avgScore.textContent = average;
-      }
-      
-      // Display message when no highscores found
-      function displayNoHighscores() {
-        const loadingElement = document.getElementById('loading');
-        loadingElement.textContent = 'No high scores found for this time period.';
-      }
-      
-      // Display error message
-      function displayError(message) {
-        const loadingElement = document.getElementById('loading');
-        loadingElement.textContent = message;
-        loadingElement.style.color = '#CF6679';
-      }
+
+        // Submit highscore
+        async function submitHighscore() {
+            if (!gameScene) return;
+            
+            // Prevent multiple submissions
+            if (scoreSubmitted) return;
+            scoreSubmitted = true;
+            
+            const submitButton = document.getElementById('submit-score');
+            submitButton.textContent = 'Submitting...';
+            submitButton.disabled = true;
+            
+            try {
+                const success = await publishHighscore(gameScene.score, gameScene.snakeLength, gameScene.kills);
+                
+                if (success) {
+                    submitButton.textContent = 'Score Submitted!';
+                    alert('Your score has been submitted successfully!');
+                } else {
+                    throw new Error("Failed to submit score");
+                }
+            } catch (error) {
+                console.error('Error submitting highscore:', error);
+                submitButton.textContent = 'Error - Try Again';
+                submitButton.disabled = false;
+                scoreSubmitted = false;
+            }
+        }
+
+        // Restart game
+        function restartGame() {
+            // Hide game over screen
+            document.getElementById('game-over').style.display = 'none';
+            
+            // Reset game state
+            if (gameScene) {
+                gameScene.restartGame();
+            }
+            
+            scoreSubmitted = false;
+        }
+
+        // Start the game
+        function startGame() {
+            // Configure game
+            const config = {
+                type: Phaser.AUTO,
+                width: window.innerWidth,
+                height: window.innerHeight,
+                parent: 'game-container',
+                backgroundColor: '#121212',
+                physics: {
+                    default: 'arcade',
+                    arcade: {
+                        gravity: { x: 0, y: 0 },
+                        debug: false
+                    }
+                },
+                scene: [ GameScene ]
+            };
+            
+            // Create game
+            game = new Phaser.Game(config);
+            
+            // Set up resize handler
+            window.addEventListener('resize', () => {
+                game.scale.resize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Game Scene
+        class GameScene extends Phaser.Scene {
+            constructor() {
+                super('GameScene');
+            }
+            
+            init() {
+                // Game state
+                this.gameOver = false;
+                this.score = 0;
+                this.snakeLength = CONFIG.GAME.INITIAL_SNAKE_LENGTH;
+                this.kills = 0;
+                this.isPredator = false;
+                this.otherSnakes = {};
+                this.foods = [];
+                this.foodSprites = {};
+                this.otherSnakeSprites = {};
+                this.playerTexts = {};
+                this.deltaCache = {};
+                
+                // Snake state
+                this.snakeSegments = [];
+                this.snakeGroup = null;
+                this.headPosition = null;
+                this.snakeAngle = 0;
+                this.speed = CONFIG.GAME.NORMAL_SPEED;
+                this.boosted = false;
+                this.boostActive = false;
+                this.boostEndTime = 0;
+                this.boostCooldown = 0;
+                this.boostReady = true;
+                
+                // Camera
+                this.worldSize = CONFIG.GAME.WORLD_SIZE;
+                this.worldBounds = new Phaser.Geom.Rectangle(0, 0, this.worldSize, this.worldSize);
+                
+                // Update tracking
+                this.lastPositionUpdate = null;
+                this.lastUpdateTime = 0;
+            }
+            
+            preload() {
+                // Create textures programmatically instead of loading
+                this.createTextures();
+            }
+            
+            createTextures() {
+                // Create graphics for textures
+                const graphics = this.add.graphics();
+                
+                // Create head texture (circle)
+                graphics.clear();
+                graphics.fillStyle(0xffffff);
+                graphics.fillCircle(10, 10, 10);
+                graphics.generateTexture('head', 20, 20);
+                
+                // Create segment texture (circle)
+                graphics.clear();
+                graphics.fillStyle(0xffffff);
+                graphics.fillCircle(10, 10, 10);
+                graphics.generateTexture('segment', 20, 20);
+                
+                // Create food texture (circle)
+                graphics.clear();
+                graphics.fillStyle(0xffffff);
+                graphics.fillCircle(10, 10, 10);
+                graphics.generateTexture('food', 20, 20);
+                
+                // Create particle texture (small circle)
+                graphics.clear();
+                graphics.fillStyle(0xffffff);
+                graphics.fillCircle(4, 4, 4);
+                graphics.generateTexture('particle', 8, 8);
+                
+                // Create grid texture (rectangle with border)
+                graphics.clear();
+                graphics.lineStyle(1, 0xffffff, 0.1);
+                graphics.strokeRect(0, 0, 50, 50);
+                graphics.generateTexture('grid', 50, 50);
+                
+                // Create predator glow texture
+                graphics.clear();
+                graphics.fillStyle(0xff0000, 1);
+                graphics.fillCircle(50, 50, 50);
+                graphics.generateTexture('predator-glow', 100, 100);
+                
+                // Destroy the graphics object as we don't need it anymore
+                graphics.destroy();
+            }
+            
+            create() {
+                // Set world bounds
+                this.physics.world.setBounds(0, 0, this.worldSize, this.worldSize);
+                
+                // Create grid background
+                this.createGrid();
+                
+                // Create snake
+                this.createSnake();
+                
+                // Create food group
+                this.foodGroup = this.physics.add.group();
+                
+                // Create other snakes group
+                this.otherSnakesGroup = this.physics.add.group();
+                
+                // Create particle emitter for boost effects
+                this.createParticleEmitter();
+                
+                // Set up camera
+                this.cameras.main.setBounds(0, 0, this.worldSize, this.worldSize);
+                
+                // Set up input
+                this.input.on('pointerdown', this.activateBoost, this);
+                
+                // Initialize minimap
+                this.initMinimap();
+                
+                // Create predator effect for player
+                this.predatorEffect = this.add.sprite(this.head.x, this.head.y, 'predator-glow');
+                this.predatorEffect.setBlendMode(Phaser.BlendModes.ADD);
+                this.predatorEffect.setDepth(5);
+                this.predatorEffect.setAlpha(0.3);
+                this.predatorEffect.setVisible(false);
+                
+                // Create kill counter for player
+                this.killCounter = this.add.text(0, 0, '💀 0', {
+                    fontFamily: 'Arial',
+                    fontSize: '16px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 3,
+                    align: 'center'
+                });
+                this.killCounter.setDepth(15);
+                this.killCounter.setOrigin(0.5);
+                this.killCounter.setVisible(false);
+                
+                // Spawn initial food
+                for (let i = 0; i < 200; i++) {
+                    this.spawnFood();
+                }
+                
+                // Send join event
+                this.sendJoinEvent();
+                
+                // Start checking for food collisions
+                this.physics.add.overlap(this.snakeGroup, this.foodGroup, this.eatFood, null, this);
+                
+                // Store reference for global access
+                gameScene = this;
+            }
+            
+            createGrid() {
+                // Create a grid of tiles
+                this.gridGroup = this.add.group();
+                
+                const tileSize = 100;
+                const numTiles = this.worldSize / tileSize;
+                
+                for (let x = 0; x < numTiles; x++) {
+                    for (let y = 0; y < numTiles; y++) {
+                        const tile = this.add.image(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, 'grid');
+                        tile.setAlpha(0.1);
+                        this.gridGroup.add(tile);
+                    }
+                }
+            }
+            
+            createParticleEmitter() {
+                this.boostParticles = this.add.particles('particle');
+                this.boostEmitter = this.boostParticles.createEmitter({
+                    speed: { min: 50, max: 100 },
+                    angle: { min: 0, max: 360 },
+                    scale: { start: 1, end: 0 },
+                    lifespan: { min: 200, max: 400 },
+                    alpha: { start: 0.8, end: 0 },
+                    tint: 0xff5500,
+                    on: false
+                });
+            }
+            
+            createSnake() {
+                // Start at a random position
+                const startX = this.worldSize / 2 + (Math.random() * 1000 - 500);
+                const startY = this.worldSize / 2 + (Math.random() * 1000 - 500);
+                
+                // Set up the snake group
+                this.snakeGroup = this.physics.add.group();
+                
+                // Create the head
+                this.head = this.snakeGroup.create(startX, startY, 'head');
+                this.head.setCircle(10);
+                this.head.setDepth(10);
+                
+                // If we have a profile picture, use it for the head
+                if (playerPublicKey && playerMetadata[playerPublicKey] && playerMetadata[playerPublicKey].picture) {
+                    this.loadProfilePictureForHead();
+                }
+                
+                // Create initial segments
+                this.headPosition = { x: startX, y: startY };
+                this.snakeSegments = [{ x: startX, y: startY }];
+                
+                for (let i = 1; i < this.snakeLength; i++) {
+                    const segment = this.snakeGroup.create(startX - i * 20, startY, 'segment');
+                    segment.setCircle(10);
+                    segment.setDepth(5);
+                    this.snakeSegments.push({ x: startX - i * 20, y: startY });
+                }
+                
+                // Set up camera to follow the head
+                this.cameras.main.startFollow(this.head, true);
+            }
+            
+            loadProfilePictureForHead() {
+                if (!playerPublicKey || !playerMetadata[playerPublicKey] || !playerMetadata[playerPublicKey].picture) return;
+                
+                // Create a texture from the profile picture URL
+                const url = playerMetadata[playerPublicKey].picture;
+                const key = 'profile-' + playerPublicKey;
+                
+                // Check if texture already exists
+                if (this.textures.exists(key)) {
+                    this.head.setTexture(key);
+                    return;
+                }
+                
+                // Create an image element to load the profile picture
+                const image = new Image();
+                image.crossOrigin = 'anonymous'; // Allow cross-origin loading
+                
+                image.onload = () => {
+                    try {
+                        // Create a canvas for the circular mask
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 20; // Match the head size
+                        canvas.height = 20; // Match the head size
+                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                        
+                        // Draw a circular mask
+                        ctx.beginPath();
+                        ctx.arc(10, 10, 10, 0, Math.PI * 2);
+                        ctx.closePath();
+                        ctx.clip();
+                        
+                        // Draw the image scaled to fit
+                        ctx.drawImage(image, 0, 0, 20, 20);
+                        
+                        // Create texture from canvas
+                        this.textures.addCanvas(key, canvas);
+                        
+                        // Set the head texture
+                        this.head.setTexture(key);
+                    } catch (e) {
+                        console.error('Error creating profile texture:', e);
+                    }
+                };
+                
+                image.onerror = () => {
+                    console.error('Error loading profile image:', url);
+                };
+                
+                // Start loading the image
+                image.src = url;
+            }
+            
+            initMinimap() {
+                // Set up minimap canvas
+                this.minimapCanvas = document.getElementById('minimap-canvas');
+                this.minimapCtx = this.minimapCanvas.getContext('2d', { willReadFrequently: true });
+                this.minimapCanvas.width = 200;
+                this.minimapCanvas.height = 200;
+                
+                // Update minimap periodically
+                this.updateMinimapHandler = () => this.updateMinimap();
+                this.time.addEvent({
+                    delay: 200,
+                    callback: this.updateMinimapHandler,
+                    loop: true
+                });
+            }
+            
+            updateMinimap() {
+                if (this.gameOver) return;
+                
+                // Clear canvas
+                this.minimapCtx.clearRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+                
+                // Draw background
+                this.minimapCtx.fillStyle = 'rgba(30, 30, 30, 0.6)';
+                this.minimapCtx.fillRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+                
+                // Calculate scale ratio
+                const scale = this.minimapCanvas.width / this.worldSize;
+                
+                // Draw world boundaries
+                this.minimapCtx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                this.minimapCtx.lineWidth = 2;
+                this.minimapCtx.strokeRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+                
+                // Draw food
+                this.minimapCtx.fillStyle = '#8888ff';
+                for (const food of this.foods) {
+                    this.minimapCtx.beginPath();
+                    this.minimapCtx.arc(
+                        food.x * scale,
+                        food.y * scale,
+                        2,
+                        0,
+                        Math.PI * 2
+                    );
+                    this.minimapCtx.fill();
+                }
+                
+                // Draw other snakes
+                this.minimapCtx.fillStyle = '#ffff00';
+                for (const pubkey in this.otherSnakes) {
+                    const snake = this.otherSnakes[pubkey];
+                    if (snake.segments.length > 0) {
+                        const head = snake.segments[0];
+                        this.minimapCtx.beginPath();
+                        this.minimapCtx.arc(
+                            head.x * scale,
+                            head.y * scale,
+                            3,
+                            0,
+                            Math.PI * 2
+                        );
+                        this.minimapCtx.fill();
+                    }
+                }
+                
+                // Draw player snake
+                if (this.snakeSegments.length > 0) {
+                    // Draw head
+                    this.minimapCtx.fillStyle = '#ff0000';
+                    this.minimapCtx.beginPath();
+                    this.minimapCtx.arc(
+                        this.snakeSegments[0].x * scale,
+                        this.snakeSegments[0].y * scale,
+                        4,
+                        0,
+                        Math.PI * 2
+                    );
+                    this.minimapCtx.fill();
+                    
+                    // Draw viewport
+                    const camera = this.cameras.main;
+                    const viewportX = (camera.scrollX) * scale;
+                    const viewportY = (camera.scrollY) * scale;
+                    const viewportWidth = (camera.width) * scale;
+                    const viewportHeight = (camera.height) * scale;
+                    
+                    this.minimapCtx.strokeStyle = '#03DAC6';
+                    this.minimapCtx.lineWidth = 1;
+                    this.minimapCtx.strokeRect(
+                        viewportX,
+                        viewportY,
+                        viewportWidth,
+                        viewportHeight
+                    );
+                }
+            }
+            
+            spawnFood() {
+                // Find a random position
+                const x = Math.floor(Math.random() * this.worldSize);
+                const y = Math.floor(Math.random() * this.worldSize);
+                
+                // Create food object
+                const food = {
+                    id: Math.random().toString(36).substring(2, 15),
+                    x: x,
+                    y: y,
+                    value: Math.floor(Math.random() * 5) + 1
+                };
+                
+                // Create food sprite
+                const foodSprite = this.foodGroup.create(x, y, 'food');
+                foodSprite.setCircle(10);
+                foodSprite.setData('id', food.id);
+                foodSprite.setData('value', food.value);
+                
+                // Scale based on value
+                const scale = 0.5 + (food.value * 0.1);
+                foodSprite.setScale(scale);
+                
+                // Random color
+                const colorHue = Math.floor(Math.random() * 360);
+                foodSprite.setTint(Phaser.Display.Color.HSLToColor(colorHue / 360, 1, 0.5).color);
+                
+                // Add to foods array
+                this.foods.push(food);
+                this.foodSprites[food.id] = foodSprite;
+            }
+            
+            eatFood(snake, foodSprite) {
+                // Get food data
+                const foodId = foodSprite.getData('id');
+                const foodValue = foodSprite.getData('value');
+                
+                // Remove food sprite
+                foodSprite.destroy();
+                
+                // Remove from foods array
+                this.foods = this.foods.filter(f => f.id !== foodId);
+                delete this.foodSprites[foodId];
+                
+                // Increase snake length and score
+                this.snakeLength += 1;
+                this.score += foodValue;
+                
+                // Update stats display
+                document.getElementById('player-length').textContent = this.snakeLength;
+                document.getElementById('player-score').textContent = this.score;
+                
+                // Update leaderboard
+                updateLeaderboard(playerPublicKey, this.score, this.kills, this.isPredator);
+                
+                // Publish event
+                publishGameEvent({
+                    type: 'food_eaten',
+                    foodId: foodId,
+                    position: {
+                        x: this.head.x,
+                        y: this.head.y
+                    }
+                });
+                
+                // Spawn new food
+                this.spawnFood();
+            }
+            
+            removeFood(foodId) {
+                // Remove food sprite
+                if (this.foodSprites[foodId]) {
+                    this.foodSprites[foodId].destroy();
+                    delete this.foodSprites[foodId];
+                }
+                
+                // Remove from foods array
+                this.foods = this.foods.filter(f => f.id !== foodId);
+                
+                // Spawn new food to replace it
+                this.spawnFood();
+            }
+            
+            activateBoost() {
+                if (this.gameOver || this.boostActive || Date.now() < this.boostCooldown) return;
+                
+                // Check if we have enough length
+                if (this.snakeLength <= CONFIG.GAME.BOOST_COST + 2) {
+                    // Flash the boost cooldown indicator
+                    const cooldownIndicator = document.getElementById('boost-cooldown');
+                    cooldownIndicator.textContent = 'Not enough length!';
+                    cooldownIndicator.style.color = '#CF6679';
+                    
+                    setTimeout(() => {
+                        cooldownIndicator.textContent = 'Click to Boost: Ready';
+                        cooldownIndicator.style.color = 'white';
+                    }, 1000);
+                    
+                    return;
+                }
+                
+                // Activate boost
+                this.boostActive = true;
+                this.boosted = true;
+                this.boostEndTime = Date.now() + CONFIG.GAME.BOOST_DURATION;
+                this.speed = CONFIG.GAME.BOOST_SPEED;
+                
+                // Reduce length as a cost
+                this.snakeLength -= CONFIG.GAME.BOOST_COST;
+                document.getElementById('player-length').textContent = this.snakeLength;
+                
+                // Start boost particles
+                this.boostEmitter.startFollow(this.head);
+                this.boostEmitter.start();
+                
+                // Show boost indicator
+                this.showBoostIndicator();
+                
+                // Set cooldown
+                this.boostCooldown = Date.now() + CONFIG.GAME.BOOST_COOLDOWN;
+                this.updateBoostCooldown();
+                
+                // Publish boost event
+                publishGameEvent({
+                    type: 'boost',
+                    position: {
+                        x: this.head.x,
+                        y: this.head.y
+                    }
+                });
+            }
+            
+            activateBoostEffectForOtherSnake(pubkey) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                const snake = this.otherSnakes[pubkey];
+                
+                // Create boost particles for this snake
+                if (!snake.boostEmitter) {
+                    snake.boostParticles = this.add.particles('particle');
+                    snake.boostEmitter = snake.boostParticles.createEmitter({
+                        speed: { min: 50, max: 100 },
+                        angle: { min: 0, max: 360 },
+                        scale: { start: 1, end: 0 },
+                        lifespan: { min: 200, max: 400 },
+                        alpha: { start: 0.8, end: 0 },
+                        tint: 0xff5500,
+                        on: false
+                    });
+                }
+                
+                // Start boost effect
+                if (snake.sprites && snake.sprites.length > 0) {
+                    snake.boostEmitter.startFollow(snake.sprites[0]);
+                    snake.boostEmitter.start();
+                    
+                    // Stop after boost duration
+                    setTimeout(() => {
+                        if (snake.boostEmitter) {
+                            snake.boostEmitter.stop();
+                        }
+                    }, CONFIG.GAME.BOOST_DURATION);
+                }
+            }
+            
+            showBoostIndicator() {
+                // Show boost indicator
+                const boostIndicator = document.getElementById('boost-indicator');
+                boostIndicator.style.display = 'block';
+                
+                // Update the indicator
+                this.updateBoostIndicator();
+            }
+            
+            updateBoostIndicator() {
+                if (!this.boostActive) return;
+                
+                const timeLeft = Math.ceil((this.boostEndTime - Date.now()) / 1000);
+                const boostIndicator = document.getElementById('boost-indicator');
+                
+                if (timeLeft > 0) {
+                    boostIndicator.textContent = `🚀 BOOST: ${timeLeft}s`;
+                    
+                    // Update recursively
+                    setTimeout(() => this.updateBoostIndicator(), 100);
+                } else {
+                    boostIndicator.style.display = 'none';
+                }
+            }
+            
+            updateBoostCooldown() {
+                if (this.gameOver) return;
+                
+                const cooldownIndicator = document.getElementById('boost-cooldown');
+                const timeLeft = Math.ceil((this.boostCooldown - Date.now()) / 1000);
+                
+                if (timeLeft > 0) {
+                    cooldownIndicator.textContent = `Click to Boost: ${timeLeft}s`;
+                    cooldownIndicator.style.color = '#888';
+                    
+                    // Update recursively
+                    setTimeout(() => this.updateBoostCooldown(), 100);
+                } else {
+                    cooldownIndicator.textContent = 'Click to Boost: Ready';
+                    cooldownIndicator.style.color = 'white';
+                }
+            }
+            
+            addOtherSnake(pubkey, position) {
+                if (this.otherSnakes[pubkey]) return;
+                
+                // Create a new snake object
+                const segments = [{ x: position.x, y: position.y }];
+                
+                // Create initial segments
+                for (let i = 1; i < CONFIG.GAME.INITIAL_SNAKE_LENGTH; i++) {
+                    segments.push({
+                        x: position.x - i * 20,
+                        y: position.y
+                    });
+                }
+                
+                // Create sprites
+                const group = this.physics.add.group();
+                const sprites = [];
+                
+                // Create head
+                const head = group.create(position.x, position.y, 'head');
+                head.setCircle(10);
+                head.setDepth(10);
+                head.setTint(this.getRandomColor());
+                sprites.push(head);
+                
+                // Create body segments
+                for (let i = 1; i < CONFIG.GAME.INITIAL_SNAKE_LENGTH; i++) {
+                    const segment = group.create(position.x - i * 20, position.y, 'segment');
+                    segment.setCircle(10);
+                    segment.setDepth(5);
+                    segment.setTint(head.tintTopLeft);
+                    sprites.push(segment);
+                }
+                
+                // Add snake to otherSnakes
+                this.otherSnakes[pubkey] = {
+                    segments: segments,
+                    angle: position.angle || 0,
+                    speed: CONFIG.GAME.NORMAL_SPEED,
+                    score: 0,
+                    length: CONFIG.GAME.INITIAL_SNAKE_LENGTH,
+                    sprites: sprites,
+                    group: group,
+                    boosted: false,
+                    color: head.tintTopLeft,
+                    kills: 0,
+                    isPredator: false
+                };
+                
+                // Set player name label
+                this.createPlayerNameLabel(pubkey);
+                
+                // Create kill counter for this snake
+                this.createKillCounter(pubkey);
+                
+                // Load profile picture if available
+                if (playerMetadata[pubkey]) {
+                    this.updateSnakeMetadata(pubkey, playerMetadata[pubkey]);
+                } else {
+                    // Request metadata
+                    requestMetadata(pubkey);
+                }
+                
+                // Update players count
+                document.getElementById('online-count').textContent = Object.keys(this.otherSnakes).length + 1;
+            }
+            
+            createPlayerNameLabel(pubkey) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                const metadata = playerMetadata[pubkey] || { name: 'Anonymous' };
+                const head = this.otherSnakes[pubkey].sprites[0];
+                
+                // Create name text
+                const nameText = this.add.text(head.x, head.y - 30, metadata.name, {
+                    fontFamily: 'Arial',
+                    fontSize: '14px',
+                    fill: '#ffffff',
+                    align: 'center',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                });
+                nameText.setOrigin(0.5);
+                nameText.setDepth(15);
+                
+                // Store reference in playerTexts
+                this.playerTexts[pubkey] = nameText;
+            }
+            
+            createKillCounter(pubkey) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                const head = this.otherSnakes[pubkey].sprites[0];
+                
+                // Create kill counter text
+                const killCounter = this.add.text(head.x, head.y - 45, '💀 0', {
+                    fontFamily: 'Arial',
+                    fontSize: '14px',
+                    fill: '#ffffff',
+                    align: 'center',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                });
+                killCounter.setOrigin(0.5);
+                killCounter.setDepth(15);
+                killCounter.setVisible(false);
+                
+                // Store reference
+                this.otherSnakes[pubkey].killCounter = killCounter;
+                
+                // Create predator effect
+                const predatorEffect = this.add.sprite(head.x, head.y, 'predator-glow');
+                predatorEffect.setBlendMode(Phaser.BlendModes.ADD);
+                predatorEffect.setDepth(5);
+                predatorEffect.setAlpha(0.3);
+                predatorEffect.setVisible(false);
+                
+                // Store reference
+                this.otherSnakes[pubkey].predatorEffect = predatorEffect;
+            }
+            
+            updateSnakeMetadata(pubkey, metadata) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                // Update player name label
+                if (this.playerTexts[pubkey]) {
+                    this.playerTexts[pubkey].setText(metadata.name);
+                } else {
+                    this.createPlayerNameLabel(pubkey);
+                }
+                
+                // Load profile picture for head
+                if (metadata.picture) {
+                    this.loadProfilePictureForSnake(pubkey, metadata.picture);
+                }
+            }
+            
+            loadProfilePictureForSnake(pubkey, url) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                // Create a texture from the profile picture URL
+                const key = 'profile-' + pubkey;
+                const head = this.otherSnakes[pubkey].sprites[0];
+                
+                // Check if texture already exists
+                if (this.textures.exists(key)) {
+                    head.setTexture(key);
+                    return;
+                }
+                
+                // Create an image element to load the profile picture
+                const image = new Image();
+                image.crossOrigin = 'anonymous'; // Allow cross-origin loading
+                
+                image.onload = () => {
+                    try {
+                        // Create a canvas for the circular mask
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 20; // Match the head size
+                        canvas.height = 20; // Match the head size
+                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                        
+                        // Draw a circular mask
+                        ctx.beginPath();
+                        ctx.arc(10, 10, 10, 0, Math.PI * 2);
+                        ctx.closePath();
+                        ctx.clip();
+                        
+                        // Draw the image scaled to fit
+                        ctx.drawImage(image, 0, 0, 20, 20);
+                        
+                        // Create texture from canvas
+                        this.textures.addCanvas(key, canvas);
+                        
+                        // Set the head texture
+                        head.setTexture(key);
+                    } catch (e) {
+                        console.error('Error creating profile texture:', e);
+                    }
+                };
+                
+                image.onerror = () => {
+                    console.error('Error loading profile image:', url);
+                };
+                
+                // Start loading the image
+                image.src = url;
+            }
+            
+            updateOtherSnake(pubkey, data) {
+                if (!this.otherSnakes[pubkey]) {
+                    this.addOtherSnake(pubkey, data.position);
+                    return;
+                }
+                
+                const snake = this.otherSnakes[pubkey];
+                const head = snake.segments[0];
+                
+                // Update position
+                const targetX = data.position.x;
+                const targetY = data.position.y;
+                
+                // Calculate delta for more efficient network updates
+                if (!this.deltaCache[pubkey]) {
+                    this.deltaCache[pubkey] = { x: 0, y: 0 };
+                }
+                
+                const delta = {
+                    x: targetX - head.x,
+                    y: targetY - head.y
+                };
+                
+                this.deltaCache[pubkey] = delta;
+                
+                // Interpolate position (smoother movement)
+                snake.segments[0] = {
+                    x: targetX,
+                    y: targetY
+                };
+                
+                // Update angle
+                snake.angle = data.position.angle;
+                
+                // Update boost status
+                if (data.boosted !== undefined) {
+                    snake.boosted = data.boosted;
+                }
+                
+                // Update snake properties
+                if (data.score !== undefined) {
+                    snake.score = data.score;
+                    updateLeaderboard(pubkey, data.score, snake.kills, snake.isPredator);
+                }
+                
+                if (data.length !== undefined) {
+                    snake.length = data.length;
+                }
+                
+                // Update kill count and predator status
+                if (data.kills !== undefined) {
+                    snake.kills = data.kills;
+                    
+                    // Update kill counter
+                    if (snake.killCounter) {
+                        snake.killCounter.setText('💀 ' + data.kills);
+                        snake.killCounter.setVisible(data.kills > 0);
+                    }
+                    
+                    // Check predator status
+                    if (data.kills >= CONFIG.GAME.PREDATOR_THRESHOLD && !snake.isPredator) {
+                        snake.isPredator = true;
+                        this.updateOtherSnakePredatorStatus(pubkey);
+                    }
+                }
+                
+                if (data.isPredator !== undefined) {
+                    snake.isPredator = data.isPredator;
+                    this.updateOtherSnakePredatorStatus(pubkey);
+                }
+                
+                // Update sprites for this frame
+                this.updateOtherSnakeSprites(pubkey);
+            }
+            
+            updateOtherSnakePredatorStatus(pubkey) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                const snake = this.otherSnakes[pubkey];
+                
+                // Update predator effect visibility
+                if (snake.predatorEffect) {
+                    snake.predatorEffect.setVisible(snake.isPredator);
+                }
+                
+                // Update leaderboard
+                updateLeaderboard(pubkey, snake.score, snake.kills, snake.isPredator);
+            }
+            
+            updateOtherSnakeSprites(pubkey) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                const snake = this.otherSnakes[pubkey];
+                const segments = snake.segments;
+                const sprites = snake.sprites;
+                
+                // Update head sprite
+                if (sprites.length > 0 && segments.length > 0) {
+                    sprites[0].x = segments[0].x;
+                    sprites[0].y = segments[0].y;
+                    sprites[0].rotation = snake.angle;
+                    
+                    // Update name text position
+                    if (this.playerTexts[pubkey]) {
+                        this.playerTexts[pubkey].x = segments[0].x;
+                        this.playerTexts[pubkey].y = segments[0].y - 30;
+                    }
+                    
+                    // Update kill counter position
+                    if (snake.killCounter) {
+                        snake.killCounter.x = segments[0].x;
+                        snake.killCounter.y = segments[0].y - 45;
+                    }
+                    
+                    // Update predator effect position
+                    if (snake.predatorEffect) {
+                        snake.predatorEffect.x = segments[0].x;
+                        snake.predatorEffect.y = segments[0].y;
+                    }
+                    
+                    // Ensure we have enough sprites for segments
+                    while (sprites.length < segments.length) {
+                        const lastSprite = sprites[sprites.length - 1];
+                        const newSprite = snake.group.create(lastSprite.x, lastSprite.y, 'segment');
+                        newSprite.setCircle(10);
+                        newSprite.setDepth(5);
+                        newSprite.setTint(sprites[0].tintTopLeft);
+                        sprites.push(newSprite);
+                    }
+                    
+                    // Update segment sprites
+                    for (let i = 1; i < Math.min(segments.length, sprites.length); i++) {
+                        sprites[i].x = segments[i].x;
+                        sprites[i].y = segments[i].y;
+                    }
+                    
+                    // Apply boost effect if snake is boosted
+                    if (snake.boosted) {
+                        // Change color to orange
+                        const boostTint = 0xff5500;
+                        for (const sprite of sprites) {
+                            sprite.setTint(boostTint);
+                        }
+                    } else {
+                        // Reset to normal color
+                        for (const sprite of sprites) {
+                            sprite.setTint(snake.color);
+                        }
+                    }
+                }
+            }
+            
+            removeOtherSnake(pubkey) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                // Destroy sprites
+                this.otherSnakes[pubkey].sprites.forEach(sprite => sprite.destroy());
+                
+                // Destroy name text
+                if (this.playerTexts[pubkey]) {
+                    this.playerTexts[pubkey].destroy();
+                    delete this.playerTexts[pubkey];
+                }
+                
+                // Destroy kill counter
+                if (this.otherSnakes[pubkey].killCounter) {
+                    this.otherSnakes[pubkey].killCounter.destroy();
+                }
+                
+                // Destroy predator effect
+                if (this.otherSnakes[pubkey].predatorEffect) {
+                    this.otherSnakes[pubkey].predatorEffect.destroy();
+                }
+                
+                // Destroy boost emitter
+                if (this.otherSnakes[pubkey].boostEmitter) {
+                    this.otherSnakes[pubkey].boostEmitter.stop();
+                    this.otherSnakes[pubkey].boostParticles.destroy();
+                }
+                
+                // Remove from otherSnakes
+                delete this.otherSnakes[pubkey];
+                
+                // Clear from delta cache
+                delete this.deltaCache[pubkey];
+                
+                // Update players count
+                document.getElementById('online-count').textContent = Object.keys(this.otherSnakes).length + 1;
+            }
+            
+            updateEnemyScore(pubkey, scoreGain) {
+                if (!this.otherSnakes[pubkey]) return;
+                
+                // Update score
+                this.otherSnakes[pubkey].score = (this.otherSnakes[pubkey].score || 0) + (scoreGain || 0);
+                this.otherSnakes[pubkey].length = (this.otherSnakes[pubkey].length || CONFIG.GAME.INITIAL_SNAKE_LENGTH) + Math.floor((scoreGain || 0) / 3);
+                
+                // Update leaderboard
+                updateLeaderboard(pubkey, this.otherSnakes[pubkey].score, this.otherSnakes[pubkey].kills, this.otherSnakes[pubkey].isPredator);
+            }
+            
+            eatEnemySnake(enemyPubkey) {
+                if (!this.otherSnakes[enemyPubkey]) return;
+                
+                const enemy = this.otherSnakes[enemyPubkey];
+                
+                // Calculate score gain
+                const scoreGain = Math.floor(enemy.length / 2);
+                
+                // Add to score and length
+                this.score += scoreGain;
+                this.snakeLength += Math.floor(scoreGain / 3);
+                
+                // Update stats display
+                document.getElementById('player-length').textContent = this.snakeLength;
+                document.getElementById('player-score').textContent = this.score;
+                
+                // Increment kill counter
+                this.kills++;
+                document.getElementById('player-kills').textContent = this.kills;
+                
+                // Update predator status
+                if (this.kills >= CONFIG.GAME.PREDATOR_THRESHOLD && !this.isPredator) {
+                    this.isPredator = true;
+                    this.predatorEffect.setVisible(true);
+                    
+                    // Show message
+                    const boostIndicator = document.getElementById('boost-indicator');
+                    boostIndicator.textContent = '🔥 PREDATOR STATUS ACHIEVED! 🔥';
+                    boostIndicator.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+                    boostIndicator.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        if (!this.boostActive) {
+                            boostIndicator.style.display = 'none';
+                        }
+                    }, 3000);
+                }
+                
+                // Update kill counter text
+                this.killCounter.setText('💀 ' + this.kills);
+                this.killCounter.setVisible(this.kills > 0);
+                
+                // Add to kill feed
+                addKillToFeed(playerPublicKey, enemyPubkey, scoreGain);
+                
+                // Publish kill event
+                publishGameEvent({
+                    type: 'kill',
+                    eatenPubkey: enemyPubkey,
+                    position: {
+                        x: this.head.x,
+                        y: this.head.y
+                    },
+                    scoreGain: scoreGain,
+                    killer: {
+                        pubkey: playerPublicKey,
+                        kills: this.kills,
+                        isPredator: this.isPredator
+                    }
+                });
+                
+                // Remove enemy snake
+                this.removeOtherSnake(enemyPubkey);
+                
+                // Update leaderboard
+                updateLeaderboard(playerPublicKey, this.score, this.kills, this.isPredator);
+            }
+            
+            playerDeath(wasEaten = false, eaterPubkey = null) {
+                if (this.gameOver) return;
+                
+                this.gameOver = true;
+                
+                // Stop boost effects
+                this.boostEmitter.stop();
+                this.boostActive = false;
+                
+                // Hide boost indicators
+                document.getElementById('boost-indicator').style.display = 'none';
+                document.getElementById('boost-cooldown').style.display = 'none';
+                
+                // Hide predator effect
+                if (this.predatorEffect) {
+                    this.predatorEffect.setVisible(false);
+                }
+                
+                // Hide kill counter
+                if (this.killCounter) {
+                    this.killCounter.setVisible(false);
+                }
+                
+                // Show death message
+                let deathMessage = "";
+                if (wasEaten && eaterPubkey && playerMetadata[eaterPubkey]) {
+                    deathMessage = `You were eaten by ${playerMetadata[eaterPubkey].name}!`;
+                    
+                    // Add to kill feed
+                    addKillToFeed(eaterPubkey, playerPublicKey, Math.floor(this.snakeLength / 2));
+                }
+                
+                // Publish death event
+                publishGameEvent({
+                    type: 'death',
+                    position: {
+                        x: this.head.x,
+                        y: this.head.y
+                    },
+                    score: this.score,
+                    kills: this.kills,
+                    wasEaten: wasEaten,
+                    eaterPubkey: eaterPubkey
+                });
+                
+                // Update game over screen
+                document.getElementById('final-score').textContent = this.score;
+                document.getElementById('final-kills').textContent = this.kills;
+                
+                // Show death message if eaten
+                if (deathMessage) {
+                    let deathElem = document.querySelector('#game-over .score-panel p.death-message');
+                    if (!deathElem) {
+                        deathElem = document.createElement('p');
+                        deathElem.className = 'death-message';
+                        deathElem.style.color = '#CF6679';
+                        const scorePanel = document.querySelector('#game-over .score-panel');
+                        scorePanel.insertBefore(deathElem, scorePanel.querySelector('p:last-of-type'));
+                    }
+                    deathElem.textContent = deathMessage;
+                }
+                
+                // Show game over screen
+                document.getElementById('game-over').style.display = 'flex';
+                
+                // Enable or disable submit button based on whether we have a valid score
+                const submitButton = document.getElementById('submit-score');
+                submitButton.disabled = this.score <= 0;
+                submitButton.textContent = 'Submit Score';
+            }
+            
+            restartGame() {
+                // Reset game state
+                this.gameOver = false;
+                this.score = 0;
+                this.snakeLength = CONFIG.GAME.INITIAL_SNAKE_LENGTH;
+                this.kills = 0;
+                this.isPredator = false;
+                
+                // Update stats display
+                document.getElementById('player-length').textContent = this.snakeLength;
+                document.getElementById('player-score').textContent = this.score;
+                document.getElementById('player-kills').textContent = this.kills;
+                
+                // Clear boost state
+                this.boostActive = false;
+                this.boosted = false;
+                this.boostEndTime = 0;
+                this.boostCooldown = 0;
+                this.speed = CONFIG.GAME.NORMAL_SPEED;
+                
+                // Reset boost indicator
+                document.getElementById('boost-indicator').style.display = 'none';
+                document.getElementById('boost-cooldown').textContent = 'Click to Boost: Ready';
+                document.getElementById('boost-cooldown').style.color = 'white';
+                document.getElementById('boost-cooldown').style.display = 'block';
+                
+                // Hide predator effect
+                if (this.predatorEffect) {
+                    this.predatorEffect.setVisible(false);
+                }
+                
+                // Hide kill counter
+                if (this.killCounter) {
+                    this.killCounter.setVisible(false);
+                }
+                
+                // Destroy current snake
+                this.snakeGroup.clear(true, true);
+                this.snakeSegments = [];
+                
+                // Clear other snakes
+                for (const pubkey in this.otherSnakes) {
+                    this.removeOtherSnake(pubkey);
+                }
+                
+                // Clear food
+                this.foodGroup.clear(true, true);
+                this.foods = [];
+                this.foodSprites = {};
+                
+                // Create new snake
+                this.createSnake();
+                
+                // Spawn new food
+                for (let i = 0; i < 200; i++) {
+                    this.spawnFood();
+                }
+                
+                // Send join event
+                this.sendJoinEvent();
+                
+                // Set up collision detection again
+                this.physics.add.overlap(this.snakeGroup, this.foodGroup, this.eatFood, null, this);
+            }
+            
+            sendJoinEvent() {
+                publishGameEvent({
+                    type: 'join',
+                    position: {
+                        x: this.head.x,
+                        y: this.head.y,
+                        angle: this.snakeAngle
+                    }
+                });
+            }
+            
+            sendPositionUpdate() {
+                const currentTime = Date.now();
+                if (currentTime - lastStatePublishTime < CONFIG.GAME.UPDATE_RATE) {
+                    return; // Only update at the specified rate
+                }
+                
+                lastStatePublishTime = currentTime;
+                
+                // Only send update if position has changed
+                if (!this.lastPositionUpdate) {
+                    this.lastPositionUpdate = { x: this.head.x, y: this.head.y, angle: this.snakeAngle };
+                }
+                
+                const dx = this.head.x - this.lastPositionUpdate.x;
+                const dy = this.head.y - this.lastPositionUpdate.y;
+                const da = this.snakeAngle - this.lastPositionUpdate.angle;
+                
+                if (Math.sqrt(dx * dx + dy * dy) > 20 || Math.abs(da) > 0.1) {
+                    publishGameEvent({
+                        type: 'position',
+                        position: {
+                            x: this.head.x,
+                            y: this.head.y,
+                            angle: this.snakeAngle
+                        },
+                        score: this.score,
+                        length: this.snakeLength,
+                        boosted: this.boosted,
+                        kills: this.kills,
+                        isPredator: this.isPredator
+                    });
+                    
+                    this.lastPositionUpdate = { x: this.head.x, y: this.head.y, angle: this.snakeAngle };
+                }
+            }
+            
+            getRandomColor() {
+                return Phaser.Display.Color.HSLToColor(Math.random(), 1, 0.5).color;
+            }
+            
+            update(time, delta) {
+                if (this.gameOver) return;
+                
+                // Get pointer position
+                const pointer = this.input.activePointer;
+                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                
+                // Calculate angle towards pointer
+                const dx = worldPoint.x - this.head.x;
+                const dy = worldPoint.y - this.head.y;
+                this.snakeAngle = Math.atan2(dy, dx);
+                
+                // Rotate head
+                this.head.rotation = this.snakeAngle;
+                
+                // Check if boost has ended
+                if (this.boostActive && Date.now() > this.boostEndTime) {
+                    // End boost
+                    this.boostActive = false;
+                    this.boosted = false;
+                    this.speed = CONFIG.GAME.NORMAL_SPEED;
+                    this.boostEmitter.stop();
+                    document.getElementById('boost-indicator').style.display = 'none';
+                }
+                
+                // Move head in the direction of angle
+                const velocity = new Phaser.Math.Vector2();
+                velocity.setToPolar(this.snakeAngle, this.speed);
+                
+                this.head.x += velocity.x * (delta / 1000);
+                this.head.y += velocity.y * (delta / 1000);
+                
+                // Update head position in segments array
+                this.snakeSegments[0] = { x: this.head.x, y: this.head.y };
+                
+                // Update boost particles
+                if (this.boostActive) {
+                    this.boostEmitter.setPosition(this.head.x, this.head.y);
+                }
+                
+                // Update predator effect
+                if (this.isPredator && this.predatorEffect) {
+                    this.predatorEffect.x = this.head.x;
+                    this.predatorEffect.y = this.head.y;
+                    
+                    // Pulsating effect
+                    const pulseFactor = 0.5 + Math.abs(Math.sin(time / 500)) * 0.3;
+                    this.predatorEffect.setScale(pulseFactor);
+                }
+                
+                // Update kill counter position
+                if (this.kills > 0 && this.killCounter) {
+                    this.killCounter.x = this.head.x;
+                    this.killCounter.y = this.head.y - 40;
+                }
+                
+                // Update rest of the snake
+                this.updateSnakeBody();
+                
+                // Check for collisions with other snakes
+                this.checkSnakeCollisions();
+                
+                // Check for wall collisions
+                this.checkWallCollisions();
+                
+                // Update other snakes segments
+                this.updateOtherSnakes();
+                
+                // Maybe spawn new food
+                if (Math.random() < CONFIG.GAME.FOOD_SPAWN_RATE) {
+                    this.spawnFood();
+                }
+                
+                // Send position update
+                this.sendPositionUpdate();
+            }
+            
+            updateSnakeBody() {
+                // Update segments
+                for (let i = this.snakeSegments.length - 1; i > 0; i--) {
+                    // Get direction to previous segment
+                    const prevSeg = this.snakeSegments[i - 1];
+                    const currentSeg = this.snakeSegments[i];
+                    
+                    // Calculate distance
+                    const dx = prevSeg.x - currentSeg.x;
+                    const dy = prevSeg.y - currentSeg.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Move toward previous segment
+                    if (distance > 20) {
+                        const angle = Math.atan2(dy, dx);
+                        const newX = currentSeg.x + Math.cos(angle) * (distance - 20);
+                        const newY = currentSeg.y + Math.sin(angle) * (distance - 20);
+                        
+                        this.snakeSegments[i] = { x: newX, y: newY };
+                        
+                        // Update sprite
+                        if (i < this.snakeGroup.getChildren().length) {
+                            const sprite = this.snakeGroup.getChildren()[i];
+                            sprite.x = newX;
+                            sprite.y = newY;
+                        }
+                    }
+                }
+                
+                // Add or remove segments to match the target length
+                while (this.snakeSegments.length > this.snakeLength) {
+                    this.snakeSegments.pop();
+                    
+                    if (this.snakeGroup.getChildren().length > this.snakeSegments.length) {
+                        const lastChild = this.snakeGroup.getChildren()[this.snakeGroup.getChildren().length - 1];
+                        lastChild.destroy();
+                    }
+                }
+                
+                while (this.snakeSegments.length < this.snakeLength) {
+                    const lastSeg = this.snakeSegments[this.snakeSegments.length - 1];
+                    const newSeg = { x: lastSeg.x, y: lastSeg.y };
+                    this.snakeSegments.push(newSeg);
+                    
+                    // Create a new sprite for this segment
+                    const segment = this.snakeGroup.create(newSeg.x, newSeg.y, 'segment');
+                    segment.setCircle(10);
+                    segment.setDepth(5);
+                }
+            }
+            
+            updateOtherSnakes() {
+                for (const pubkey in this.otherSnakes) {
+                    const snake = this.otherSnakes[pubkey];
+                    
+                    if (snake.segments.length < 2) continue;
+                    
+                    // Apply velocity from delta cache
+                    if (this.deltaCache[pubkey]) {
+                        const delta = this.deltaCache[pubkey];
+                        const head = snake.segments[0];
+                        
+                        // Interpolation factor (smoother movement)
+                        const factor = 0.1;
+                        
+                        // Apply delta
+                        snake.segments[0] = {
+                            x: head.x + delta.x * factor,
+                            y: head.y + delta.y * factor
+                        };
+                    }
+                    
+                    // Update segments (follow the leader)
+                    for (let i = 1; i < snake.segments.length; i++) {
+                        const prev = snake.segments[i - 1];
+                        const current = snake.segments[i];
+                        
+                        // Get direction to previous segment
+                        const dx = prev.x - current.x;
+                        const dy = prev.y - current.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Move toward previous segment
+                        if (distance > 20) {
+                            const angle = Math.atan2(dy, dx);
+                            const newX = current.x + Math.cos(angle) * (distance - 20);
+                            const newY = current.y + Math.sin(angle) * (distance - 20);
+                            
+                            snake.segments[i] = { x: newX, y: newY };
+                        }
+                    }
+                    
+                    // Update sprites
+                    this.updateOtherSnakeSprites(pubkey);
+                    
+                    // Update predator effect if active
+                    if (snake.isPredator && snake.predatorEffect) {
+                        snake.predatorEffect.x = snake.segments[0].x;
+                        snake.predatorEffect.y = snake.segments[0].y;
+                        
+                        // Pulsating effect
+                        const pulseFactor = 0.5 + Math.abs(Math.sin(Date.now() / 500)) * 0.3;
+                        snake.predatorEffect.setScale(pulseFactor);
+                    }
+                }
+            }
+            
+            checkWallCollisions() {
+                if (
+                    this.head.x < 0 || 
+                    this.head.x > this.worldSize || 
+                    this.head.y < 0 || 
+                    this.head.y > this.worldSize
+                ) {
+                    this.playerDeath();
+                }
+            }
+            
+            checkSnakeCollisions() {
+                // Check collisions with other snakes
+                for (const pubkey in this.otherSnakes) {
+                    const snake = this.otherSnakes[pubkey];
+                    
+                    // Skip if not enough segments
+                    if (snake.segments.length < 2) continue;
+                    
+                    // Check collision with head
+                    const enemyHead = snake.segments[0];
+                    const dx = this.head.x - enemyHead.x;
+                    const dy = this.head.y - enemyHead.y;
+                    const headDistance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (headDistance < 20) {
+                        // Head-to-head collision, larger snake wins
+                        if (this.snakeLength > snake.length) {
+                            this.eatEnemySnake(pubkey);
+                        } else {
+                            this.playerDeath(true, pubkey);
+                        }
+                        return;
+                    }
+                    
+                    // Check collision with enemy body
+                    for (let i = 1; i < snake.segments.length; i++) {
+                        const segment = snake.segments[i];
+                        const segDx = this.head.x - segment.x;
+                        const segDy = this.head.y - segment.y;
+                        const segDistance = Math.sqrt(segDx * segDx + segDy * segDy);
+                        
+                        if (segDistance < 15) {
+                            this.eatEnemySnake(pubkey);
+                            return;
+                        }
+                    }
+                }
+                
+                // Check collision with own body
+                for (let i = Math.floor(this.snakeLength / 3); i < this.snakeSegments.length; i++) {
+                    const segment = this.snakeSegments[i];
+                    const dx = this.head.x - segment.x;
+                    const dy = this.head.y - segment.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 15) {
+                        this.playerDeath();
+                        return;
+                    }
+                }
+            }
+        }
     </script>
-  </body>
+</body>
 </html>
